@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, List, Tuple
+from typing import Any
 
 import matplotlib.pyplot as plt
 from PIL import Image
@@ -12,14 +12,14 @@ EXTENSIONS = (".jpg", ".jpeg", ".png")
 
 
 class ImageDataset(Dataset):
-    def __init__(self, items: List[Tuple[Path, int]], pretrained: bool) -> None:
+    def __init__(self, items: list[tuple[Path, int]], pretrained: bool) -> None:
         self._items = items
         self._pretrained = pretrained
 
     def __len__(self) -> int:
         return len(self._items)
 
-    def __getitem__(self, index: int) -> Tuple[Tensor, int]:
+    def __getitem__(self, index: int) -> tuple[Tensor, int]:
         path, label = self._items[index]
         return transform_image_to_tensor(load_image(path), self._pretrained), label
 
@@ -28,7 +28,7 @@ def get_data_root_path(path_name: str = "data") -> Path:
     return Path(path_name)
 
 
-def get_class_names(root: Path = get_data_root_path()) -> List[str]:
+def get_class_names(root: Path = get_data_root_path()) -> list[str]:
     if not root.exists():
         raise FileNotFoundError(f"{root} does not exist")
 
@@ -38,12 +38,12 @@ def get_class_names(root: Path = get_data_root_path()) -> List[str]:
 def get_data_loaders(
     root: Path = get_data_root_path(),
     pretrained: bool = False,
-    ratio: List[float] = [0.7, 0.3],
+    ratio: list[float] = [0.7, 0.3],
     batch_size: int = 32,
     shuffle: bool = False,
     num_workers: int = 2,
     max_items_per_class: int = 0,
-) -> Tuple[DataLoader[ImageDataset], DataLoader[ImageDataset], ImageDataset]:
+) -> tuple[DataLoader[ImageDataset], DataLoader[ImageDataset], ImageDataset]:
     class_names = get_class_names(root)
     label_map = {label: index for index, label in enumerate(class_names)}
 
@@ -94,7 +94,7 @@ def load_image(path: Path) -> Image.Image:
 
 
 def transform_image_to_tensor(image: Image.Image, pretrained: bool = False) -> Tensor:
-    transformations: List[Any] = [
+    transformations: list[Any] = [
         Resize((224, 224)),
         ToTensor(),
     ]
@@ -119,7 +119,7 @@ def visualize_raw_tensor(tensor: Tensor) -> None:
     plt.show()
 
 
-def visualize_raw_tensors(tensors: List[Tensor], rows: int = 3, cols: int = 3) -> None:
+def visualize_raw_tensors(tensors: list[Tensor], rows: int = 3, cols: int = 3) -> None:
     figure, axes = plt.subplots(rows, cols, figsize=(cols * 3, rows * 3))
     axes = axes.flatten() if rows * cols > 1 else [axes]
 

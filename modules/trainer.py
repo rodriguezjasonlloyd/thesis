@@ -1,6 +1,6 @@
 import warnings
 from random import seed as random_seed
-from typing import Any, Optional, Tuple
+from typing import Any, Optional
 
 from numpy.random import seed as np_seed
 from torch import Tensor, device, load, manual_seed, no_grad, save
@@ -53,7 +53,7 @@ def save_checkpoint(
 
 def load_checkpoint(
     model: Module, optimizer: Optimizer, scheduler: LRScheduler, path: str
-) -> Tuple[int, float]:
+) -> tuple[int, float]:
     checkpoint = load(path)
     model.load_state_dict(checkpoint["model_state_dict"])
     optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
