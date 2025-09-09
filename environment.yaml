@@ -1,0 +1,14 @@
+name: thesis
+channels:
+  - conda-forge
+dependencies:
+  - matplotlib
+  - numpy
+  - pillow
+  - python=3.12
+  - pytorch
+  - rich
+  - timm
+  - torchvision
+  - tqdm
+  - transformers
