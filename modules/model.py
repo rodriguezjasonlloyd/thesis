@@ -8,7 +8,7 @@ from torch.nn.functional import pad, unfold
 
 class FocalSelfAttention(Module):
     def __init__(self, dim: int, num_heads: int = 8, win_size: int = 4) -> None:
-        assert dim % num_heads == 0, "dim must be divisible by num_heads"
+        assert dim % num_heads == 0, "'dim' must be divisible by 'num_heads'"
 
         super().__init__()
 
@@ -135,7 +135,7 @@ class FocalSelfAttention(Module):
 
 class TransformerBlock(Module):
     def __init__(self, dim: int, num_heads: int = 8, win_size: int = 4) -> None:
-        assert dim % num_heads == 0, "dim must be divisible by num_heads"
+        assert dim % num_heads == 0, "'dim' must be divisible by 'num_heads'"
 
         super().__init__()
 
@@ -181,12 +181,12 @@ def channels_for_stage(model: Module, stage_idx: int) -> int:
     stage = model.get_submodule(stage_path)
 
     if stage is None:
-        raise RuntimeError(f"stage not found at path: {stage_path}")
+        raise RuntimeError(f"Stage not found at path: {stage_path}")
 
     blocks_list = list(stage.get_submodule("blocks").children())
 
     if len(blocks_list) == 0:
-        raise RuntimeError(f"no blocks found under {stage_path}.blocks")
+        raise RuntimeError(f"No blocks found under {stage_path}.blocks")
 
     first_block = blocks_list[0]
 
@@ -208,7 +208,7 @@ def channels_for_stage(model: Module, stage_idx: int) -> int:
             return int(m.in_channels)
 
     raise RuntimeError(
-        f"could not determine channel dim for stage {stage_idx}, inspect your block structure."
+        f"Could not determine channel dim for stage {stage_idx}, inspect your block structure."
     )
 
 
@@ -232,12 +232,12 @@ def build_model(pretrained: bool = False, with_fsa: bool = False) -> Module:
         stage3_blocks = model.get_submodule("stages.3.blocks")
 
         if stage2_blocks is None or stage3_blocks is None:
-            raise RuntimeError("expected stages.2.blocks and stages.3.blocks in model")
+            raise RuntimeError("Expected stages.2.blocks and stages.3.blocks in model")
 
         if not isinstance(stage2_blocks, Sequential) or not isinstance(
             stage3_blocks, Sequential
         ):
-            raise RuntimeError("expected blocks to be Sequential")
+            raise RuntimeError("Expected blocks to be Sequential")
 
         stage2_block_count = len(stage2_blocks)
         stage3_block_count = len(stage3_blocks)
