@@ -8,7 +8,7 @@ class State(Enum):
     AnalyzeMenu = auto()
     AnalyzeDescriptive = auto()
     AnalyzeSampleBatch = auto()
-    AnalyzeSampleBatchNormalized = auto()
+    AnalyzeTrainingGraphs = auto()
 
     ExperimentMenu = auto()
     ExperimentAll = auto()
