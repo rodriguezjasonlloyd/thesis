@@ -7,6 +7,7 @@ from traceback import print_exc
 
 from questionary import prompt
 
+from modules.analysis import analyze_sample_batch, show_training_graphs
 from modules.experiment import run_experiment
 from modules.state_machine import State, StateMachine
 
@@ -42,6 +43,37 @@ def select_directories(path: str = "experiments") -> list[str]:
     answer = prompt(questions)
 
     return answer.get("selected_directories") if answer else []
+
+
+def select_experiment_with_results() -> str:
+    experiments_path = Path("experiments")
+
+    if not experiments_path.exists():
+        print("Experiments directory not found")
+        return None
+
+    experiment_directories = [
+        directory.name
+        for directory in experiments_path.iterdir()
+        if directory.is_dir() and (directory / "results.json").exists()
+    ]
+
+    if not experiment_directories:
+        print("No experiments with results.json found")
+        return None
+
+    questions = [
+        {
+            "type": "select",
+            "name": "selected_experiment",
+            "message": "Select experiment:",
+            "choices": experiment_directories,
+        }
+    ]
+
+    answer = prompt(questions)
+
+    return answer.get("selected_experiment") if answer else None
 
 
 def main_menu(state_machine: StateMachine):
@@ -80,7 +112,7 @@ def analyze_menu(state_machine: StateMachine):
             "choices": [
                 "Descriptive",
                 "Sample Batch",
-                "Sample Batch Normalized",
+                "Show Training Graphs",
                 "Back",
                 "Quit",
             ],
@@ -102,8 +134,8 @@ def analyze_menu(state_machine: StateMachine):
         state_machine.transition(State.AnalyzeDescriptive)
     elif analysis_type == "Sample Batch":
         state_machine.transition(State.AnalyzeSampleBatch)
-    elif analysis_type == "Sample Batch Normalized":
-        state_machine.transition(State.AnalyzeSampleBatchNormalized)
+    elif analysis_type == "Show Training Graphs":
+        state_machine.transition(State.AnalyzeTrainingGraphs)
 
 
 def experiment_menu(state_machine: StateMachine):
@@ -143,11 +175,11 @@ def run():
                 State.MainMenu,
                 State.AnalyzeDescriptive,
                 State.AnalyzeSampleBatch,
-                State.AnalyzeSampleBatchNormalized,
+                State.AnalyzeTrainingGraphs,
             ],
             State.AnalyzeDescriptive: [State.AnalyzeMenu],
             State.AnalyzeSampleBatch: [State.AnalyzeMenu],
-            State.AnalyzeSampleBatchNormalized: [State.AnalyzeMenu],
+            State.AnalyzeTrainingGraphs: [State.AnalyzeMenu],
             State.ExperimentMenu: [
                 State.Quit,
                 State.MainMenu,
@@ -173,10 +205,20 @@ def run():
             # TODO: implement
             state_machine.transition(State.AnalyzeMenu)
         elif current == State.AnalyzeSampleBatch:
-            # TODO: implement
+            analyze_sample_batch(state_machine, pretrained=False)
             state_machine.transition(State.AnalyzeMenu)
-        elif current == State.AnalyzeSampleBatchNormalized:
-            # TODO: implement
+        elif current == State.AnalyzeTrainingGraphs:
+            selected_experiment = select_experiment_with_results()
+
+            if selected_experiment:
+                experiment_directory = Path("experiments") / selected_experiment
+
+                try:
+                    show_training_graphs(experiment_directory)
+                except Exception:
+                    print_exc()
+                    print(f"Error showing graphs for {selected_experiment}")
+
             state_machine.transition(State.AnalyzeMenu)
         elif current == State.ExperimentAll:
             experiments_path = Path("experiments")
@@ -199,9 +241,6 @@ def run():
                 try:
                     results = run_experiment(experiment_directory)
                     print(f"Experiment completed: {results['experiment_name']}")
-                    print(
-                        f"Average validation accuracy: {results['average_validation_acc']:.2f}%"
-                    )
                 except Exception:
                     print_exc()
                     print(f"Error running experiment in {experiment_directory}")
@@ -226,9 +265,6 @@ def run():
                 try:
                     results = run_experiment(experiment_directory)
                     print(f"Experiment completed: {results['experiment_name']}")
-                    print(
-                        f"Average validation accuracy: {results['average_validation_accuracy']:.2f}%"
-                    )
                 except Exception:
                     print_exc()
                     print(f"Error running experiment in {experiment_directory}")

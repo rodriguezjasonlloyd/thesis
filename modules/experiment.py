@@ -195,6 +195,7 @@ def run_experiment(experiment_directory: Path) -> dict[str, Any]:
                 "fold": fold["fold"],
                 "best_validation_loss": fold["best_validation_loss"],
                 "best_validation_accuracy": fold["best_validation_accuracy"],
+                "epoch_history": fold["epoch_history"],
             }
             for fold in results["fold_results"]
         ],

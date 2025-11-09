@@ -2,7 +2,6 @@ from pathlib import Path
 from random import shuffle as random_shuffle
 from typing import Any
 
-import matplotlib.pyplot as plt
 from PIL import Image
 from torch import Tensor
 from torch.accelerator import is_available as is_accelerator_available
@@ -139,27 +138,3 @@ def transform_image_to_tensor(image: Image.Image, pretrained: bool = False) -> T
     transform = Compose(transformations)
 
     return transform(image)
-
-
-def visualize_raw_tensor(tensor: Tensor) -> None:
-    numpy_image = tensor.permute(1, 2, 0).numpy()
-
-    plt.figure(figsize=(8, 8))
-    plt.imshow(numpy_image)
-    plt.title("Raw Transformed Tensor (After Normalization)")
-    plt.axis("off")
-    plt.show()
-
-
-def visualize_raw_tensors(tensors: list[Tensor], rows: int = 3, cols: int = 3) -> None:
-    figure, axes = plt.subplots(rows, cols, figsize=(cols * 3, rows * 3))
-    axes = axes.flatten() if rows * cols > 1 else [axes]
-
-    for index, tensor in enumerate(tensors[: rows * cols]):
-        numpy_image = tensor.permute(1, 2, 0).numpy()
-        axes[index].imshow(numpy_image)
-        axes[index].set_title(f"Image {index + 1}")
-        axes[index].axis("off")
-
-    plt.tight_layout()
-    plt.show()
