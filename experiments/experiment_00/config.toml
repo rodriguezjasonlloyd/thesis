@@ -3,7 +3,6 @@ seed = 42
 
 [data]
 root = "data"
-pretrained = false
 k_folds = 5
 batch_size = 32
 shuffle = false

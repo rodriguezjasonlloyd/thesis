@@ -16,7 +16,6 @@ from modules.trainer import seed_all, train_model
 @dataclass
 class DataConfig:
     root: str = "data"
-    pretrained: bool = False
     k_folds: int = 5
     batch_size: int = 32
     shuffle: bool = True
@@ -63,7 +62,6 @@ def parse_config(config_path: Path) -> ExperimentConfig:
     data_dict = raw_config.get("data", {})
     data_config = DataConfig(
         root=data_dict.get("root", "data"),
-        pretrained=data_dict.get("pretrained", False),
         k_folds=data_dict.get("k_folds", 5),
         batch_size=data_dict.get("batch_size", 32),
         shuffle=data_dict.get("shuffle", True),
@@ -150,7 +148,7 @@ def run_experiment(experiment_directory: Path) -> dict[str, Any]:
 
     fold_loaders = get_data_loaders(
         root=get_data_root_path(config.data.root),
-        pretrained=config.data.pretrained,
+        pretrained=config.model.pretrained,
         k_folds=config.data.k_folds,
         batch_size=config.data.batch_size,
         shuffle=config.data.shuffle,
