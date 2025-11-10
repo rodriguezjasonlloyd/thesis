@@ -1,8 +1,7 @@
 [project]
 name = "thesis"
 version = "0.1.0"
-description = "Add your description here"
-requires-python = ">=3.13"
+description = "PCOS classification task for thesis."
 dependencies = [
   "gradio>=5.49.1",
   "kaleido>=1.2.0",
@@ -20,12 +19,3 @@ dependencies = [
   "tqdm>=4.67.1",
   "transformers>=4.57.1",
 ]
-
-[[tool.uv.index]]
-name = "pytorch-cu128"
-url = "https://download.pytorch.org/whl/cu128"
-explicit = true
-
-[tool.uv.sources]
-torch = [{ index = "pytorch-cu128" }]
-torchvision = [{ index = "pytorch-cu128" }]
