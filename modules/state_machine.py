@@ -14,6 +14,8 @@ class State(Enum):
     ExperimentAll = auto()
     ExperimentSelected = auto()
 
+    LaunchDashboard = auto()
+
 
 class StateMachine:
     def __init__(
