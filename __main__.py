@@ -8,6 +8,7 @@ from traceback import print_exc
 from questionary import prompt
 
 from modules.analysis import analyze_sample_batch, show_training_graphs
+from modules.app_gradio import make_ui
 from modules.experiment import run_experiment
 from modules.state_machine import State, StateMachine
 
@@ -84,7 +85,7 @@ def main_menu(state_machine: StateMachine):
             "type": "select",
             "name": "operation",
             "message": "What would you like to do?",
-            "choices": ["Analysis", "Experiment", "Quit"],
+            "choices": ["Analysis", "Experiment", "Launch Dashboard", "Quit"],
         }
     ]
 
@@ -101,6 +102,8 @@ def main_menu(state_machine: StateMachine):
         state_machine.transition(State.AnalyzeMenu)
     elif operation == "Experiment":
         state_machine.transition(State.ExperimentMenu)
+    elif operation == "Launch Dashboard":
+        state_machine.transition(State.LaunchDashboard)
 
 
 def analyze_menu(state_machine: StateMachine):
@@ -169,7 +172,12 @@ def run():
     state_machine = StateMachine(
         State.MainMenu,
         {
-            State.MainMenu: [State.Quit, State.AnalyzeMenu, State.ExperimentMenu],
+            State.MainMenu: [
+                State.Quit,
+                State.AnalyzeMenu,
+                State.ExperimentMenu,
+                State.LaunchDashboard,
+            ],
             State.AnalyzeMenu: [
                 State.Quit,
                 State.MainMenu,
@@ -188,6 +196,7 @@ def run():
             ],
             State.ExperimentAll: [State.ExperimentMenu],
             State.ExperimentSelected: [State.ExperimentMenu],
+            State.LaunchDashboard: [State.MainMenu],
             State.Quit: [],
         },
     )
@@ -270,6 +279,9 @@ def run():
                     print(f"Error running experiment in {experiment_directory}")
 
             state_machine.transition(State.ExperimentMenu)
+        elif current == State.LaunchDashboard:
+            make_ui().launch()
+            state_machine.transition(State.MainMenu)
 
     print("Goodbye!")
 
