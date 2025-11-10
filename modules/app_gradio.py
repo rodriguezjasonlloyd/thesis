@@ -1,67 +1,48 @@
 from __future__ import annotations
 
-import io
-from contextlib import redirect_stdout
 from pathlib import Path
-from typing import List, TYPE_CHECKING, Any
+from typing import Any
 
 import gradio as gr
+import torch
+from torch.nn.functional import softmax
 
-if TYPE_CHECKING:
-    from PIL import Image
-
-
-# Lazy Imports
-def import_run_experiment():
-    from modules.experiment import run_experiment
-    return run_experiment
+from modules.data import get_class_names, get_data_root_path, transform_image_to_tensor
+from modules.model import build_model
 
 
-# Helper: Placeholder GradCAM++ Heatmap
-def generate_placeholder_heatmap(image: Any):
-    """
-    Placeholder for GradCAM++ heatmap.
-    Currently: returns the original image unchanged.
-    **REPLACE with real GradCAM++ overlay.
-    """
-    return image
-
-
-# Model Loading
-def load_model(model_path: Path, pretrained: bool):
-    import torch
-    from modules.model import build_model
-
+def load_model(model_path: Path, pretrained: bool, with_fsa: bool):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = build_model(pretrained=pretrained, with_fsa=False).to(device)
+    model = build_model(pretrained=pretrained, with_fsa=with_fsa)
+    model = model.to(device)
 
     if model_path and model_path.exists():
         state = torch.load(model_path, map_location=device)
+
         try:
             if "model_state_dict" in state:
                 model.load_state_dict(state["model_state_dict"])
             else:
                 model.load_state_dict(state)
+
         except Exception:
-            # fallback: try nested dicts
-            for v in state.values():
-                if isinstance(v, dict):
+            for value in state.values():
+                if isinstance(value, dict):
                     try:
-                        model.load_state_dict(v)
+                        model.load_state_dict(value)
                         break
                     except Exception:
                         continue
 
     model.eval()
+
     return model
 
-# Prediction Logic
-def predict_image(image: Any, uploaded_model: object):
-    """Predict using only uploaded model file (.pth) + heatmap placeholder."""
 
+def predict_image(image: Any, uploaded_model: object):
     if image is None:
         return ("No image provided", 0.0, None)
-    
+
     if uploaded_model is None:
         return ("No model file uploaded", 0.0, None)
 
@@ -69,36 +50,27 @@ def predict_image(image: Any, uploaded_model: object):
         model_path = Path(uploaded_model.name)
     except Exception:
         return ("Error reading uploaded file", 0.0, None)
-    
+
     if model_path.suffix.lower() != ".pth":
         return ("Invalid file type: please upload a .pth model file.", 0.0, None)
 
-    import torch
-    from torch.nn.functional import softmax
-    from modules.data import transform_image_to_tensor, get_class_names, get_data_root_path
-
-    # Load model
     try:
-        model = load_model(model_path, pretrained=False)
-    except Exception as e:
-        return (f"Model load error: {e}", 0.0, None)
+        model = load_model(model_path, pretrained=False, with_fsa=False)
+    except Exception as exception:
+        return (f"Model load error: {exception}", 0.0, None)
 
-    # Transform image
     try:
         tensor = transform_image_to_tensor(image, pretrained=False)
-    except Exception as e:
-        return (f"Image transform error: {e}", 0.0, None)
+    except Exception as exception:
+        return (f"Image transform error: {exception}", 0.0, None)
 
-    # Inference
     with torch.no_grad():
         device = next(model.parameters()).device
         out = model(tensor.unsqueeze(0).to(device))
         probs = softmax(out, dim=1).cpu().numpy()[0]
         pred_idx = int(probs.argmax())
 
-    # Class label
     try:
-        from modules.data import get_class_names, get_data_root_path
         classes = get_class_names(get_data_root_path())
         label = classes[pred_idx]
     except Exception:
@@ -106,24 +78,23 @@ def predict_image(image: Any, uploaded_model: object):
 
     confidence = float(probs[pred_idx])
 
-    # GradCAM++ placeholder
-    heatmap = generate_placeholder_heatmap(image)
+    # heatmap = generate_placeholder_heatmap(image)
 
-    return (label, confidence, heatmap)
+    return (label, confidence, image)
 
 
-# Wrapper for Gradio
 def predict_uploaded_only(image: Any, uploaded_model: object):
     return predict_image(image, uploaded_model)
 
 
-# UI
 def make_ui() -> gr.Blocks:
     with gr.Blocks() as demo:
         gr.Markdown("# Thesis")
 
         with gr.Tab("Predict"):
-            gr.Markdown("###ConvNext V2 Model with Focal Self-Attention and Grad-CAM++ for PCOM Classification using Ultrasound Images")
+            gr.Markdown(
+                "### ConvNext V2 Model with Focal Self-Attention and Grad-CAM++ for PCOM Classification using Ultrasound Images"
+            )
 
             upload_model = gr.File(label="Upload model (.pth)")
 
@@ -142,7 +113,3 @@ def make_ui() -> gr.Blocks:
             )
 
     return demo
-
-
-if __name__ == "__main__":
-    make_ui().launch()
