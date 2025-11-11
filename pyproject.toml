@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "PCOS classification task for thesis."
 requires-python = ">=3.13"
 dependencies = [
+  "grad-cam>=1.5.5",
   "gradio>=5.49.1",
   "kaleido>=1.2.0",
   "matplotlib>=3.10.7",
