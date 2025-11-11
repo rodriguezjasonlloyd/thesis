@@ -1,7 +1,11 @@
 from math import sqrt
+from pathlib import Path
 
 from timm import create_model
 from torch import Tensor, cat, matmul, softmax
+from torch import device as torch_device
+from torch import load as torch_load
+from torch.cuda import is_available as torch_cuda_is_available
 from torch.nn import GELU, AvgPool2d, Conv2d, LayerNorm, Linear, Module, Sequential
 from torch.nn.functional import pad, unfold
 
@@ -210,6 +214,19 @@ def channels_for_stage(model: Module, stage_idx: int) -> int:
     raise RuntimeError(
         f"Could not determine channel dim for stage {stage_idx}, inspect your block structure."
     )
+
+
+def load_model(model_path: Path, pretrained: bool, with_fsa: bool) -> Module:
+    device = torch_device("cuda" if torch_cuda_is_available() else "cpu")
+    model = build_model(pretrained=pretrained, with_fsa=with_fsa)
+    model = model.to(device)
+
+    if model_path and model_path.exists():
+        model.load_state_dict(torch_load(model_path), strict=True)
+
+    model.eval()
+
+    return model
 
 
 def build_model(pretrained: bool = False, with_fsa: bool = False) -> Module:
