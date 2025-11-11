@@ -22,7 +22,9 @@ from modules.data import get_class_names, get_data_root_path, transform_image_to
 from modules.model import load_model
 
 
-def predict_image(image: Any, uploaded_model: object) -> tuple[str, float]:
+def predict_image(
+    image: Image, uploaded_model: File, with_fsa: bool
+) -> tuple[str, float]:
     if image is None:
         return ("No image provided", 0.0, None)
 
@@ -31,34 +33,75 @@ def predict_image(image: Any, uploaded_model: object) -> tuple[str, float]:
 
     try:
         model_path = Path(uploaded_model.name)
-    except Exception:
+    except Exception as exception:
+        print(f"Error reading uploaded file: {exception}")
         return ("Error reading uploaded file", 0.0, None)
 
     try:
-        model = load_model(model_path, pretrained=False, with_fsa=False)
+        model = load_model(model_path, with_fsa=with_fsa)
     except Exception as exception:
-        return (f"Model load error: {exception}", 0.0, None)
+        print(f"Model load error: {exception}")
+        return ("Model load error", 0.0, None)
 
     try:
-        tensor = transform_image_to_tensor(image, pretrained=False)
+        tensor = transform_image_to_tensor(image)
     except Exception as exception:
-        return (f"Image transform error: {exception}", 0.0, None)
-
-    with no_grad():
-        device = next(model.parameters()).device
-        output = model(tensor.unsqueeze(0).to(device))
-        probabilities = softmax(output, dim=1).cpu().numpy()[0]
-        prediction_index = int(probabilities.argmax())
+        print(f"Image transform error: {exception}")
+        return ("Image transform error", 0.0)
 
     try:
+        with no_grad():
+            device = next(model.parameters()).device
+            output = model(tensor.unsqueeze(0).to(device))
+            probabilities = softmax(output, dim=1).cpu().numpy()[0]
+            prediction_index = int(probabilities.argmax())
+
         classes = get_class_names(get_data_root_path())
         label = classes[prediction_index]
+        confidence = float(probabilities[prediction_index])
+
+        return (label, confidence)
+    except Exception as exception:
+        print(f"Prediction error: {exception}")
+        return ("Prediction error", 0.0)
+
+
+def generate_gradcam(
+    image: Image, uploaded_model: File, with_fsa: bool, target_layer_index: int
+) -> ndarray:
+    if image is None or uploaded_model is None:
+        return None
+
+    try:
+        model_path = Path(uploaded_model.name)
+        model = load_model(model_path, with_fsa=with_fsa)
+        rgb_image = float32(image) / 255
+        input_tensor = preprocess_image(rgb_image)
+        target_layers = [model.stages[target_layer_index]]
+
+        with GradCAMPlusPlus(model=model, target_layers=target_layers) as cam:
+            visualization = show_cam_on_image(
+                rgb_image, cam(input_tensor=input_tensor)[0, :], use_rgb=True
+            )
+
+        return visualization
+    except Exception as exception:
+        print(f"Grad-CAM error: {exception}")
+        return None
+
+
+def update_layer_choices(uploaded_model: File):
+    if uploaded_model is None:
+        return Dropdown(choices=[], value=None)
+
+    try:
+        model_path = Path(uploaded_model.name)
+        model = load_model(model_path, with_fsa=True)
+        num_stages = len(model.stages)
+        choices = [(f"Stage {index}", index) for index in range(num_stages)]
+        return Dropdown(choices=choices, value=num_stages - 1)
     except Exception:
-        label = str(prediction_index)
-
-    confidence = float(probabilities[prediction_index])
-
-    return (label, confidence)
+        return Dropdown(choices=[], value=None)
 
 
 def make_dashboard() -> Blocks:
