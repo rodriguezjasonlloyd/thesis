@@ -1,0 +1,24 @@
+name = "FD - baseline model with FSA"
+seed = 42
+
+[data]
+root = "data"
+pretrained = false
+k_folds = 5
+batch_size = 32
+shuffle = false
+num_workers = 2
+max_items_per_class = 0
+
+[model]
+pretrained = false
+with_fsa = true
+
+[optimizer]
+learning_rate = 0.0001
+weight_decay = 0.001
+
+[training]
+num_epochs = 30
+patience = 5
+min_delta = 0.0001
