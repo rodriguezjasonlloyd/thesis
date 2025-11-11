@@ -7,41 +7,42 @@ from gradio import (
     Dropdown,
     File,
     Image,
+    Label,
     Markdown,
-    Number,
+    Row,
 )
-from gradio.components.label import Label
-from gradio.layouts.row import Row
 from numpy import float32, ndarray
+from PIL import Image as PillowImage
 from pytorch_grad_cam.grad_cam_plusplus import GradCAMPlusPlus
-from pytorch_grad_cam.utils.image import preprocess_image, show_cam_on_image
+from pytorch_grad_cam.utils.image import show_cam_on_image
 from torch import no_grad
 from torch.nn.functional import softmax
 
 from modules.data import get_class_names, get_data_root_path, transform_image_to_tensor
 from modules.model import load_model
+from modules.trainer import truncate
 
 
 def predict_image(
-    image: Image, uploaded_model: File, with_fsa: bool
-) -> tuple[str, float]:
+    image: PillowImage.Image, uploaded_model: File, with_fsa: bool
+) -> tuple[str, str]:
     if image is None:
-        return ("No image provided", 0.0, None)
+        return ("No image provided", 0.0)
 
     if uploaded_model is None:
-        return ("No model file uploaded", 0.0, None)
+        return ("No model file uploaded", 0.0)
 
     try:
         model_path = Path(uploaded_model.name)
     except Exception as exception:
         print(f"Error reading uploaded file: {exception}")
-        return ("Error reading uploaded file", 0.0, None)
+        return ("Error reading uploaded file", 0.0)
 
     try:
         model = load_model(model_path, with_fsa=with_fsa)
     except Exception as exception:
         print(f"Model load error: {exception}")
-        return ("Model load error", 0.0, None)
+        return ("Model load error", 0.0)
 
     try:
         tensor = transform_image_to_tensor(image)
@@ -58,7 +59,7 @@ def predict_image(
 
         classes = get_class_names(get_data_root_path())
         label = classes[prediction_index]
-        confidence = float(probabilities[prediction_index])
+        confidence = f"{truncate(float(probabilities[prediction_index]), 2)}%"
 
         return (label, confidence)
     except Exception as exception:
@@ -67,16 +68,21 @@ def predict_image(
 
 
 def generate_gradcam(
-    image: Image, uploaded_model: File, with_fsa: bool, target_layer_index: int
+    image: PillowImage.Image,
+    uploaded_model: File,
+    with_fsa: bool,
+    target_layer_index: int,
 ) -> ndarray:
     if image is None or uploaded_model is None:
         return None
+
+    image = image.resize((224, 224))
 
     try:
         model_path = Path(uploaded_model.name)
         model = load_model(model_path, with_fsa=with_fsa)
         rgb_image = float32(image) / 255
-        input_tensor = preprocess_image(rgb_image)
+        input_tensor = transform_image_to_tensor(image).unsqueeze(0)
         target_layers = [model.stages[target_layer_index]]
 
         with GradCAMPlusPlus(model=model, target_layers=target_layers) as cam:
@@ -114,12 +120,12 @@ def make_dashboard() -> Blocks:
         fsa_checkbox = Checkbox(label="Use Focal Self-Attention (FSA)")
         upload_model = File(label="Upload model (.pt)")
 
-        image_input = Image(type="pil", label="Upload image")
+        image_input = Image(type="pil", label="Upload image", height=224)
         predict_button = Button("Predict")
 
         with Row():
             predicted_label = Label(label="Predicted label")
-            predicted_confidence = Number(label="Confidence")
+            predicted_confidence = Label(label="Confidence")
 
         layer_selector = Dropdown(label="Target Layer", choices=[], value=None)
         show_gradcam_button = Button("Show Grad-CAM++")
