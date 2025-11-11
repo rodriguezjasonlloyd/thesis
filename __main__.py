@@ -8,7 +8,7 @@ from traceback import print_exc
 from questionary import prompt
 
 from modules.analysis import analyze_sample_batch, show_training_graphs
-from modules.app_gradio import make_ui
+from modules.app_gradio import make_dashboard
 from modules.experiment import run_experiment
 from modules.state_machine import State, StateMachine
 
@@ -214,7 +214,7 @@ def run():
             # TODO: implement
             state_machine.transition(State.AnalyzeMenu)
         elif current == State.AnalyzeSampleBatch:
-            analyze_sample_batch(state_machine, pretrained=False)
+            analyze_sample_batch(pretrained=False)
             state_machine.transition(State.AnalyzeMenu)
         elif current == State.AnalyzeTrainingGraphs:
             selected_experiment = select_experiment_with_results()
@@ -280,7 +280,7 @@ def run():
 
             state_machine.transition(State.ExperimentMenu)
         elif current == State.LaunchDashboard:
-            make_ui().launch()
+            make_dashboard().launch()
             state_machine.transition(State.MainMenu)
 
     print("Goodbye!")
