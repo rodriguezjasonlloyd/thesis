@@ -8,7 +8,7 @@ from traceback import print_exc
 from questionary import prompt
 
 from modules.analysis import analyze_sample_batch, show_training_graphs
-from modules.app_gradio import make_dashboard
+from modules.dashboard import make_dashboard
 from modules.experiment import run_experiment
 from modules.state_machine import State, StateMachine
 
