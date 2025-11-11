@@ -1,6 +1,20 @@
 from pathlib import Path
 
-from gradio import Blocks, Button, File, Image, Markdown, Number, Tab, Textbox
+from gradio import (
+    Blocks,
+    Button,
+    Checkbox,
+    Dropdown,
+    File,
+    Image,
+    Markdown,
+    Number,
+)
+from gradio.components.label import Label
+from gradio.layouts.row import Row
+from numpy import float32, ndarray
+from pytorch_grad_cam.grad_cam_plusplus import GradCAMPlusPlus
+from pytorch_grad_cam.utils.image import preprocess_image, show_cam_on_image
 from torch import no_grad
 from torch.nn.functional import softmax
 
@@ -48,24 +62,40 @@ def predict_image(image: Any, uploaded_model: object) -> tuple[str, float]:
 
 
 def make_dashboard() -> Blocks:
-    with Blocks() as demo:
-        Markdown("# Thesis")
+    with Blocks() as dashboard:
+        Markdown(
+            "# ConvNext V2 Model with Focal Self-Attention and Grad-CAM++ for PCOM Classification using Ultrasound Images"
+        )
 
-        with Tab("Predict"):
-            Markdown(
-                "### ConvNext V2 Model with Focal Self-Attention and Grad-CAM++ for PCOM Classification using Ultrasound Images"
-            )
+        Markdown("Note: The uploaded model architecture should match the FSA checkbox.")
+        fsa_checkbox = Checkbox(label="Use Focal Self-Attention (FSA)")
+        upload_model = File(label="Upload model (.pt)")
 
-            upload_model = File(label="Upload model (.pt)")
-            image_input = Image(type="pil", label="Upload image")
-            predict_button = Button("Predict")
-            predicted_label = Textbox(label="Predicted label")
+        image_input = Image(type="pil", label="Upload image")
+        predict_button = Button("Predict")
+
+        with Row():
+            predicted_label = Label(label="Predicted label")
             predicted_confidence = Number(label="Confidence")
 
-            predict_button.click(
-                fn=predict_image,
-                inputs=[image_input, upload_model],
-                outputs=[predicted_label, predicted_confidence],
-            )
+        layer_selector = Dropdown(label="Target Layer", choices=[], value=None)
+        show_gradcam_button = Button("Show Grad-CAM++")
+        gradcam_output = Image(label="Grad-CAM++ Visualization")
 
-    return demo
+        upload_model.change(
+            fn=update_layer_choices, inputs=[upload_model], outputs=[layer_selector]
+        )
+
+        predict_button.click(
+            fn=predict_image,
+            inputs=[image_input, upload_model, fsa_checkbox],
+            outputs=[predicted_label, predicted_confidence],
+        )
+
+        show_gradcam_button.click(
+            fn=generate_gradcam,
+            inputs=[image_input, upload_model, fsa_checkbox, layer_selector],
+            outputs=gradcam_output,
+        )
+
+    return dashboard
