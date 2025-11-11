@@ -4,7 +4,6 @@ from pathlib import Path
 from tomllib import load as toml_load
 from typing import Any, Callable, Iterator
 
-from torch import save as torch_save
 from torch.nn import CrossEntropyLoss, Module, Parameter
 from torch.optim import AdamW, Optimizer
 
@@ -161,6 +160,7 @@ def run_experiment(experiment_directory: Path) -> dict[str, Any]:
     criterion = CrossEntropyLoss()
 
     results = train_model(
+        experiment_directory=experiment_directory,
         get_model=get_model,
         get_optimizer=get_optimizer,
         criterion=criterion,
@@ -203,17 +203,5 @@ def run_experiment(experiment_directory: Path) -> dict[str, Any]:
         json_dump(results_to_save, f, indent=2)
 
     print(f"Results saved to {results_path}")
-
-    models_directory = experiment_directory / "models"
-    models_directory.mkdir(exist_ok=True)
-
-    for fold_result in results["fold_results"]:
-        fold_num = fold_result["fold"]
-        model_state_dict = fold_result["model_state_dict"]
-
-        if model_state_dict is not None:
-            model_path = models_directory / f"fold_{fold_num}_best_model.pth"
-            torch_save(model_state_dict, model_path)
-            print(f"Model for fold {fold_num} saved to {model_path}")
 
     return results

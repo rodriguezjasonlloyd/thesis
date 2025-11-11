@@ -1,21 +1,23 @@
 from datetime import datetime
+from pathlib import Path
 from random import seed as random_seed
-from typing import Any, Callable, Iterator, Optional
+from typing import Any, Callable, Iterator
 from warnings import filterwarnings
 
 from numpy.random import seed as np_seed
 from rich.console import Console
 from rich.table import Table
 from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_score
-from torch import Tensor, device, load, manual_seed, no_grad, save
+from torch import Tensor, device, manual_seed, no_grad
 from torch import cat as torch_cat
 from torch import max as torch_max
+from torch import save as torch_save
 from torch.cuda import is_available as is_cuda_available
 from torch.cuda import manual_seed_all
 from torch.nn import Module, Parameter
 from torch.nn.functional import softmax
 from torch.optim import Optimizer
-from torch.optim.lr_scheduler import CosineAnnealingLR, LRScheduler
+from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import DataLoader
 from tqdm.rich import tqdm
 from tqdm.std import TqdmExperimentalWarning
@@ -50,37 +52,6 @@ def get_device() -> device:
         return device("cuda")
     else:
         return device("cpu")
-
-
-def save_checkpoint(
-    model: Module,
-    optimizer: Optimizer,
-    scheduler: LRScheduler,
-    epoch: int,
-    loss: float,
-    path: str,
-) -> None:
-    save(
-        {
-            "epoch": epoch,
-            "model_state_dict": model.state_dict(),
-            "optimizer_state_dict": optimizer.state_dict(),
-            "scheduler_state_dict": scheduler.state_dict(),
-            "loss": loss,
-        },
-        path,
-    )
-
-
-def load_checkpoint(
-    model: Module, optimizer: Optimizer, scheduler: LRScheduler, path: str
-) -> tuple[int, float]:
-    checkpoint = load(path)
-    model.load_state_dict(checkpoint["model_state_dict"])
-    optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
-    scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
-
-    return checkpoint["epoch"], checkpoint["loss"]
 
 
 def compute_accuracy(output: Tensor, target: Tensor) -> float:
@@ -129,6 +100,7 @@ def compute_metrics(
 
 
 def train_model(
+    experiment_directory: Path,
     get_model: Callable[[], Module],
     get_optimizer: Callable[[Iterator[Parameter]], Optimizer],
     criterion: Module,
@@ -137,6 +109,9 @@ def train_model(
     patience: int = 5,
     min_delta: float = 1e-3,
 ) -> dict[str, Any]:
+    models_directory = experiment_directory / "models"
+    models_directory.mkdir(exist_ok=True)
+
     experiment_start_time = datetime.now()
     device = get_device()
     criterion = criterion.to(device)
@@ -161,7 +136,6 @@ def train_model(
         best_validation_loss = float("inf")
         best_validation_accuracy = 0.0
         epochs_without_improvement = 0
-        best_model_state_dict: Optional[dict[str, Any]] = None
         epoch_history = []
 
         for epoch in range(num_epochs):
@@ -251,7 +225,10 @@ def train_model(
                 best_validation_loss = average_validation_loss
                 best_validation_accuracy = average_validation_accuracy
                 epochs_without_improvement = 0
-                best_model_state_dict = model.state_dict().copy()
+                torch_save(
+                    model.state_dict(),
+                    models_directory / f"best_model_fold_{fold_index + 1}.pt",
+                )
             else:
                 epochs_without_improvement += 1
 
@@ -297,9 +274,6 @@ def train_model(
                     f"[yellow]Early stopping triggered at epoch {epoch + 1}[/yellow]"
                 )
 
-                if best_model_state_dict is not None:
-                    model.load_state_dict(best_model_state_dict)
-
                 break
 
         fold_duration = (datetime.now() - fold_start_time).total_seconds()
@@ -309,7 +283,6 @@ def train_model(
                 "fold": fold_index + 1,
                 "best_validation_loss": best_validation_loss,
                 "best_validation_accuracy": best_validation_accuracy,
-                "model_state_dict": best_model_state_dict,
                 "epoch_history": epoch_history,
             }
         )
