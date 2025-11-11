@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Any
 
 from gradio import Blocks, Button, File, Image, Markdown, Number, Tab, Textbox
 from torch import no_grad
