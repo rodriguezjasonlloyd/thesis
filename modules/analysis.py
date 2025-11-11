@@ -7,7 +7,6 @@ from plotly.subplots import make_subplots
 from torch import Tensor
 
 from modules.data import get_data_loaders
-from modules.state_machine import StateMachine
 
 
 def tensor_to_numpy(tensor: Tensor) -> ndarray:
@@ -43,7 +42,7 @@ def visualize_raw_tensors(tensors: list[Tensor], rows: int = 3, cols: int = 3) -
     figure.show()
 
 
-def analyze_sample_batch(state_machine: StateMachine, pretrained: bool = False) -> None:
+def analyze_sample_batch(pretrained: bool = False) -> None:
     try:
         data_loaders = get_data_loaders(pretrained=pretrained)
 
