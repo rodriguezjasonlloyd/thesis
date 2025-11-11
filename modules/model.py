@@ -216,9 +216,9 @@ def channels_for_stage(model: Module, stage_idx: int) -> int:
     )
 
 
-def load_model(model_path: Path, pretrained: bool, with_fsa: bool) -> Module:
+def load_model(model_path: Path, with_fsa: bool = False) -> Module:
     device = torch_device("cuda" if torch_cuda_is_available() else "cpu")
-    model = build_model(pretrained=pretrained, with_fsa=with_fsa)
+    model = build_model(with_fsa=with_fsa)
     model = model.to(device)
 
     if model_path and model_path.exists():
