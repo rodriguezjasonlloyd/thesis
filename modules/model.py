@@ -5,9 +5,10 @@ from timm import create_model
 from torch import Tensor, cat, matmul, softmax
 from torch import device as torch_device
 from torch import load as torch_load
-from torch.cuda import is_available as torch_cuda_is_available
 from torch.nn import GELU, AvgPool2d, Conv2d, LayerNorm, Linear, Module, Sequential
 from torch.nn.functional import pad, unfold
+
+from modules.trainer import get_device
 
 
 class FocalSelfAttention(Module):
@@ -217,12 +218,14 @@ def channels_for_stage(model: Module, stage_idx: int) -> int:
 
 
 def load_model(model_path: Path, with_fsa: bool = False) -> Module:
-    device = torch_device("cuda" if torch_cuda_is_available() else "cpu")
+    device = torch_device(get_device())
     model = build_model(with_fsa=with_fsa)
     model = model.to(device)
 
     if model_path and model_path.exists():
-        model.load_state_dict(torch_load(model_path), strict=True)
+        model.load_state_dict(
+            torch_load(model_path, map_location=get_device()), strict=True
+        )
 
     model.eval()
 
