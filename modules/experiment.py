@@ -17,7 +17,6 @@ class DataConfig:
     root: str = "data"
     k_folds: int = 5
     batch_size: int = 32
-    shuffle: bool = True
     num_workers: int = 2
     max_items_per_class: int = 0
 
@@ -63,7 +62,6 @@ def parse_config(config_path: Path) -> ExperimentConfig:
         root=data_dict.get("root", "data"),
         k_folds=data_dict.get("k_folds", 5),
         batch_size=data_dict.get("batch_size", 32),
-        shuffle=data_dict.get("shuffle", True),
         num_workers=data_dict.get("num_workers", 2),
         max_items_per_class=data_dict.get("max_items_per_class", 0),
     )
@@ -150,7 +148,6 @@ def run_experiment(experiment_directory: Path) -> dict[str, Any]:
         pretrained=config.model.pretrained,
         k_folds=config.data.k_folds,
         batch_size=config.data.batch_size,
-        shuffle=config.data.shuffle,
         num_workers=config.data.num_workers,
         max_items_per_class=config.data.max_items_per_class,
     )

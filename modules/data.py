@@ -40,7 +40,6 @@ def get_data_loaders(
     pretrained: bool = False,
     k_folds: int = 5,
     batch_size: int = 32,
-    shuffle: bool = False,
     num_workers: int = 2,
     max_items_per_class: int = 0,
 ) -> list[tuple[DataLoader, DataLoader]]:
@@ -80,8 +79,7 @@ def get_data_loaders(
 
     indices = list(range(dataset_size))
 
-    if shuffle:
-        random_shuffle(indices)
+    random_shuffle(indices)
 
     fold_size = dataset_size // k_folds
     fold_loaders = []
@@ -99,7 +97,7 @@ def get_data_loaders(
         train_loader = DataLoader(
             train_subset,
             batch_size=batch_size,
-            shuffle=shuffle,
+            shuffle=True,
             num_workers=num_workers,
             pin_memory=is_accelerator_available(),
         )
@@ -107,7 +105,7 @@ def get_data_loaders(
         validation_loader = DataLoader(
             validation_subset,
             batch_size=batch_size,
-            shuffle=False,
+            shuffle=True,
             num_workers=num_workers,
             pin_memory=is_accelerator_available(),
         )
