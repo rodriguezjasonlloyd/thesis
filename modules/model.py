@@ -223,9 +223,7 @@ def load_model(model_path: Path, with_fsa: bool = False) -> Module:
     model = model.to(device)
 
     if model_path and model_path.exists():
-        model.load_state_dict(
-            torch_load(model_path, map_location=get_device()), strict=True
-        )
+        model.load_state_dict(torch_load(model_path, map_location=get_device()))
 
     model.eval()
 
@@ -236,7 +234,7 @@ def build_model(pretrained: bool = False, with_fsa: bool = False) -> Module:
     model = create_model(
         f"convnextv2_atto.fcmae{'_ft_in1k' if pretrained else ''}",
         pretrained=pretrained,
-        num_classes=2,
+        num_classes=1,
     )
 
     if pretrained:
@@ -280,5 +278,7 @@ def build_model(pretrained: bool = False, with_fsa: bool = False) -> Module:
 
         model.set_submodule("stages.2.blocks", stage2_transformer_blocks)
         model.set_submodule("stages.3.blocks", stage3_transformer_blocks)
+
+    model.set_submodule("head.fc", Linear(in_features=320, out_features=1, bias=True))
 
     return model
