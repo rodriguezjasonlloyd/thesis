@@ -18,6 +18,7 @@ from torch.nn import Module, Parameter
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import DataLoader
+from torchmetrics.classification import BinaryConfusionMatrix
 from tqdm.rich import tqdm
 from tqdm.std import TqdmExperimentalWarning
 
@@ -130,6 +131,8 @@ def train_model(
         optimizer = get_optimizer(model.parameters())
         scheduler = CosineAnnealingLR(optimizer, num_epochs, 1e-6)
 
+        confusion_matrix = BinaryConfusionMatrix().to(device)
+
         best_validation_loss = float("inf")
         best_validation_accuracy = 0.0
         epochs_without_improvement = 0
@@ -191,6 +194,14 @@ def train_model(
                     validation_accuracy += compute_accuracy(output_tensor, label)
                     validation_outputs.append(output_tensor.detach())
                     validation_targets.append(label.detach())
+
+            validation_metrics = compute_metrics(validation_outputs, validation_targets)
+
+            with no_grad():
+                all_val_outputs = torch_cat(validation_outputs, dim=0)
+                all_val_targets = torch_cat(validation_targets, dim=0)
+                val_preds = (torch.sigmoid(all_val_outputs.squeeze()) > 0.5).long()
+                confusion_matrix.update(val_preds, all_val_targets.squeeze().long())
 
             if len(train_loader) == 0:
                 raise ValueError(f"Fold {fold_index + 1}: Training loader is empty")
@@ -281,11 +292,14 @@ def train_model(
 
         fold_duration = (datetime.now() - fold_start_time).total_seconds()
 
+        fold_confusion_matrix = confusion_matrix.compute()
+
         fold_results.append(
             {
                 "fold": fold_index + 1,
                 "best_validation_loss": best_validation_loss,
                 "best_validation_accuracy": best_validation_accuracy,
+                "confusion_matrix": fold_confusion_matrix.cpu().tolist(),
                 "epoch_history": epoch_history,
             }
         )
@@ -296,6 +310,29 @@ def train_model(
             f"Best Validation Accuracy: {truncate(best_validation_accuracy, 2):.2f}%"
         )
         console.print(f"[dim]Fold took {format_duration(fold_duration)}[/dim]\n")
+
+        confusion_matrix_table = Table(
+            title=f"Confusion Matrix - Fold {fold_index + 1}"
+        )
+        confusion_matrix_table.add_column("", style="cyan")
+        confusion_matrix_table.add_column(
+            "Predicted: 0", justify="center", style="magenta"
+        )
+        confusion_matrix_table.add_column(
+            "Predicted: 1", justify="center", style="magenta"
+        )
+
+        true_negative, false_positive = fold_confusion_matrix[0].tolist()
+        false_negative, true_positive = fold_confusion_matrix[1].tolist()
+
+        confusion_matrix_table.add_row(
+            "Actual: 0", str(true_negative), str(false_positive)
+        )
+        confusion_matrix_table.add_row(
+            "Actual: 1", str(false_negative), str(true_positive)
+        )
+
+        console.print(f"{confusion_matrix_table}\n")
 
     average_validation_loss = (
         sum(fold["best_validation_loss"] for fold in fold_results) / k_folds
