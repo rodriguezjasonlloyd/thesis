@@ -4,7 +4,7 @@ from pathlib import Path
 from tomllib import load as toml_load
 from typing import Any, Callable, Iterator
 
-from torch.nn import CrossEntropyLoss, Module, Parameter
+from torch.nn import BCEWithLogitsLoss, Module, Parameter
 from torch.optim import AdamW, Optimizer
 
 from modules.data import get_data_loaders, get_data_root_path
@@ -105,7 +105,7 @@ def create_get_model(model_config: ModelConfig) -> Callable[[], Module]:
 
 
 def get_criterion() -> Module:
-    return CrossEntropyLoss()
+    return BCEWithLogitsLoss()
 
 
 def create_get_optimizer(
@@ -154,7 +154,7 @@ def run_experiment(experiment_directory: Path) -> dict[str, Any]:
 
     get_model = create_get_model(config.model)
     get_optimizer = create_get_optimizer(config.optimizer)
-    criterion = CrossEntropyLoss()
+    criterion = get_criterion()
 
     results = train_model(
         experiment_directory=experiment_directory,
