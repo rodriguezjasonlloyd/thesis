@@ -4,18 +4,17 @@ from random import seed as random_seed
 from typing import Any, Callable, Iterator
 from warnings import filterwarnings
 
+import torch
 from numpy.random import seed as np_seed
 from rich.console import Console
 from rich.table import Table
 from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_score
 from torch import Tensor, device, manual_seed, no_grad
 from torch import cat as torch_cat
-from torch import max as torch_max
 from torch import save as torch_save
 from torch.cuda import is_available as is_cuda_available
 from torch.cuda import manual_seed_all
 from torch.nn import Module, Parameter
-from torch.nn.functional import softmax
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import DataLoader
@@ -56,8 +55,9 @@ def get_device() -> device:
 
 def compute_accuracy(output: Tensor, target: Tensor) -> float:
     with no_grad():
-        _, predicted = torch_max(output, 1)
-        correct = (predicted == target).sum().item()
+        predicted = (torch.sigmoid(output.squeeze()) > 0.5).long()
+        target_squeezed = target.squeeze().long()
+        correct = (predicted == target_squeezed).sum().item()
         total = target.size(0)
 
         return 100.0 * correct / total
@@ -70,26 +70,23 @@ def compute_metrics(
         outputs = torch_cat(all_outputs, dim=0)
         targets = torch_cat(all_targets, dim=0)
 
-        _, predicted = torch_max(outputs, 1)
+        probabilities = torch.sigmoid(outputs.squeeze())
+        predicted = (probabilities > 0.5).long()
 
-        predicted_np = predicted.cpu().numpy()
-        targets_np = targets.cpu().numpy()
-        probabilities_np = softmax(outputs, dim=1).cpu().numpy()
+        predicted_numpy = predicted.cpu().numpy()
+        targets_numpy = targets.squeeze().cpu().numpy()
+        probabilities_numpy = probabilities.cpu().numpy()
 
-        precision = precision_score(
-            targets_np, predicted_np, average="macro", zero_division=0
-        )
-        recall = recall_score(
-            targets_np, predicted_np, average="macro", zero_division=0
-        )
-        f1 = f1_score(targets_np, predicted_np, average="macro", zero_division=0)
+        precision = precision_score(targets_numpy, predicted_numpy, zero_division=0)
+        recall = recall_score(targets_numpy, predicted_numpy, zero_division=0)
+        f1 = f1_score(targets_numpy, predicted_numpy, zero_division=0)
 
-        unique_classes = len(set(targets_np.tolist()))
+        unique_classes = len(set(targets_numpy.tolist()))
 
         if unique_classes < 2:
             roc_auc = 0.0
         else:
-            roc_auc = roc_auc_score(targets_np, probabilities_np[:, 1])
+            roc_auc = roc_auc_score(targets_numpy, probabilities_numpy)
 
         return {
             "precision": precision * 100.0,
@@ -152,8 +149,11 @@ def train_model(
                 desc=f"Fold {fold_index + 1} - Training Epoch {epoch + 1}",
                 leave=False,
             ):
+                input: Tensor = input
+                label: Tensor = label
+
                 input = input.to(device)
-                label = label.to(device)
+                label = label.float().unsqueeze(1).to(device)
 
                 optimizer.zero_grad()
                 output_tensor: Tensor = model(input)
@@ -178,8 +178,11 @@ def train_model(
                     desc=f"Fold {fold_index + 1} - Validation Epoch {epoch + 1}",
                     leave=False,
                 ):
+                    input: Tensor = input
+                    label: Tensor = label
+
                     input = input.to(device)
-                    label = label.to(device)
+                    label = label.float().unsqueeze(1).to(device)
 
                     output_tensor: Tensor = model(input)
                     loss_tensor: Tensor = criterion(output_tensor, label)

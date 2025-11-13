@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import torch
 from gradio import (
     Blocks,
     Button,
@@ -15,8 +16,7 @@ from numpy import float32, ndarray
 from PIL import Image as PillowImage
 from pytorch_grad_cam.grad_cam_plusplus import GradCAMPlusPlus
 from pytorch_grad_cam.utils.image import show_cam_on_image
-from torch import no_grad
-from torch.nn.functional import softmax
+from torch import Tensor, no_grad
 
 from modules.data import get_class_names, get_data_root_path, transform_image_to_tensor
 from modules.model import load_model
@@ -53,13 +53,13 @@ def predict_image(
     try:
         with no_grad():
             device = next(model.parameters()).device
-            output = model(tensor.unsqueeze(0).to(device))
-            probabilities = softmax(output, dim=1).cpu().numpy()[0]
-            prediction_index = int(probabilities.argmax())
+            output: Tensor = model(tensor.unsqueeze(0).to(device))
+            probability = torch.sigmoid(output).cpu().item()
+            prediction_index = int(probability > 0.5)
 
         classes = get_class_names(get_data_root_path())
         label = classes[prediction_index]
-        confidence = f"{truncate(float(probabilities[prediction_index]), 2)}%"
+        confidence = f"{truncate(probability * 100.0, 2)}%"
 
         return (label, confidence)
     except Exception as exception:
