@@ -332,7 +332,7 @@ def train_model(
             "Actual: 1", str(false_negative), str(true_positive)
         )
 
-        console.print(f"{confusion_matrix_table}\n")
+        console.print(confusion_matrix_table)
 
     average_validation_loss = (
         sum(fold["best_validation_loss"] for fold in fold_results) / k_folds
