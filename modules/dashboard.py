@@ -59,7 +59,10 @@ def predict_image(
 
         classes = get_class_names(get_data_root_path())
         label = classes[prediction_index]
-        confidence = f"{truncate(probability * 100.0, 2)}%"
+        predicted_class_probability = (
+            probability if prediction_index == 1 else (1.0 - probability)
+        )
+        confidence = f"{truncate(predicted_class_probability * 100.0, 2)}%"
 
         return (label, confidence)
     except Exception as exception:
