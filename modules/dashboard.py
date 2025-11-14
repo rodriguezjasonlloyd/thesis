@@ -99,17 +99,18 @@ def generate_gradcam(
         return None
 
 
-def update_layer_choices(uploaded_model: File):
+def update_layer_choices(uploaded_model: File, with_fsa: bool):
     if uploaded_model is None:
         return Dropdown(choices=[], value=None)
 
     try:
         model_path = Path(uploaded_model.name)
-        model = load_model(model_path, with_fsa=True)
+        model = load_model(model_path, with_fsa=with_fsa)
         num_stages = len(model.stages)
         choices = [(f"Stage {index}", index) for index in range(num_stages)]
         return Dropdown(choices=choices, value=num_stages - 1)
-    except Exception:
+    except Exception as exception:
+        print(f"Update layer error {exception}")
         return Dropdown(choices=[], value=None)
 
 
@@ -135,7 +136,9 @@ def make_dashboard() -> Blocks:
         gradcam_output = Image(label="Grad-CAM++ Visualization")
 
         upload_model.change(
-            fn=update_layer_choices, inputs=[upload_model], outputs=[layer_selector]
+            fn=update_layer_choices,
+            inputs=[upload_model, fsa_checkbox],
+            outputs=[layer_selector],
         )
 
         predict_button.click(
