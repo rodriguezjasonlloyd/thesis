@@ -19,6 +19,7 @@ class DataConfig:
     batch_size: int = 32
     num_workers: int = 2
     max_items_per_class: int = 0
+    augmented: bool = False
 
 
 @dataclass
@@ -64,6 +65,7 @@ def parse_config(config_path: Path) -> ExperimentConfig:
         batch_size=data_dict.get("batch_size", 32),
         num_workers=data_dict.get("num_workers", 2),
         max_items_per_class=data_dict.get("max_items_per_class", 0),
+        augmented=data_dict.get("augmented", False),
     )
 
     model_dict = raw_config.get("model", {})
@@ -146,6 +148,7 @@ def run_experiment(experiment_directory: Path) -> dict[str, Any]:
     fold_loaders = get_data_loaders(
         root=get_data_root_path(config.data.root),
         pretrained=config.model.pretrained,
+        augmented=config.data.augmented,
         k_folds=config.data.k_folds,
         batch_size=config.data.batch_size,
         num_workers=config.data.num_workers,

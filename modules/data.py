@@ -1,27 +1,42 @@
 from pathlib import Path
 from random import shuffle as random_shuffle
-from typing import Any
 
+from _pytest.python import Module
 from PIL import Image
 from torch import Tensor
 from torch.accelerator import is_available as is_accelerator_available
-from torch.utils.data import DataLoader, Dataset, Subset
-from torchvision.transforms import Compose, Normalize, Resize, ToTensor
+from torch.utils.data import DataLoader, Dataset
+from torchvision.transforms import (
+    ColorJitter,
+    Compose,
+    Normalize,
+    RandomAutocontrast,
+    RandomHorizontalFlip,
+    RandomRotation,
+    RandomVerticalFlip,
+    Resize,
+    ToTensor,
+)
 
 EXTENSIONS = (".jpg", ".jpeg", ".png")
 
 
 class ImageDataset(Dataset):
-    def __init__(self, items: list[tuple[Path, int]], pretrained: bool) -> None:
+    def __init__(
+        self, items: list[tuple[Path, int]], pretrained: bool, augmented: bool
+    ) -> None:
         self._items = items
         self._pretrained = pretrained
+        self._augmented = augmented
 
     def __len__(self) -> int:
         return len(self._items)
 
     def __getitem__(self, index: int) -> tuple[Tensor, int]:
         path, label = self._items[index]
-        return transform_image_to_tensor(load_image(path), self._pretrained), label
+        return transform_image_to_tensor(
+            load_image(path), self._pretrained, self._augmented
+        ), label
 
 
 def get_data_root_path(path_name: str = "data") -> Path:
@@ -38,6 +53,7 @@ def get_class_names(root: Path = get_data_root_path()) -> list[str]:
 def get_data_loaders(
     root: Path = get_data_root_path(),
     pretrained: bool = False,
+    augmented: bool = False,
     k_folds: int = 5,
     batch_size: int = 32,
     num_workers: int = 2,
@@ -63,8 +79,7 @@ def get_data_loaders(
         for path in files:
             items.append((path, label_map[class_name]))
 
-    dataset = ImageDataset(items, pretrained)
-    dataset_size = len(dataset)
+    dataset_size = len(items)
 
     if dataset_size == 0:
         raise ValueError(
@@ -78,7 +93,6 @@ def get_data_loaders(
         )
 
     indices = list(range(dataset_size))
-
     random_shuffle(indices)
 
     fold_size = dataset_size // k_folds
@@ -88,14 +102,20 @@ def get_data_loaders(
         validation_start = fold * fold_size
         validation_end = (fold + 1) * fold_size if fold < k_folds - 1 else dataset_size
         validation_indices = indices[validation_start:validation_end]
-
         train_indices = indices[:validation_start] + indices[validation_end:]
 
-        train_subset = Subset(dataset, train_indices)
-        validation_subset = Subset(dataset, validation_indices)
+        train_dataset = ImageDataset(
+            items=[items[i] for i in train_indices],
+            pretrained=pretrained,
+            augmented=augmented,
+        )
+
+        validation_dataset = ImageDataset(
+            items=[items[i] for i in validation_indices], pretrained=pretrained
+        )
 
         train_loader = DataLoader(
-            train_subset,
+            train_dataset,
             batch_size=batch_size,
             shuffle=True,
             num_workers=num_workers,
@@ -103,9 +123,9 @@ def get_data_loaders(
         )
 
         validation_loader = DataLoader(
-            validation_subset,
+            validation_dataset,
             batch_size=batch_size,
-            shuffle=True,
+            shuffle=False,
             num_workers=num_workers,
             pin_memory=is_accelerator_available(),
         )
@@ -122,11 +142,25 @@ def load_image(path: Path) -> Image.Image:
         raise
 
 
-def transform_image_to_tensor(image: Image.Image, pretrained: bool = False) -> Tensor:
-    transformations: list[Any] = [
+def transform_image_to_tensor(
+    image: Image.Image, pretrained: bool = False, augmented: bool = False
+) -> Tensor:
+    transformations: list[Module] = [
         Resize((224, 224)),
-        ToTensor(),
     ]
+
+    if augmented:
+        transformations.extend(
+            [
+                RandomHorizontalFlip(p=0.5),
+                RandomVerticalFlip(p=0.5),
+                RandomRotation(15),
+                ColorJitter(brightness=0.4, contrast=0.4, saturation=0.3),
+                RandomAutocontrast(p=0.5),
+            ]
+        )
+
+    transformations.append(ToTensor())
 
     if pretrained:
         transformations.append(
