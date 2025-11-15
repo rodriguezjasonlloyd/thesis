@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import numpy
+import pytorch_grad_cam
 import torch
 from gradio import (
     Blocks,
@@ -12,11 +14,10 @@ from gradio import (
     Markdown,
     Row,
 )
-from numpy import float32, ndarray
 from PIL import Image as PillowImage
 from pytorch_grad_cam.grad_cam_plusplus import GradCAMPlusPlus
-from pytorch_grad_cam.utils.image import show_cam_on_image
-from torch import Tensor, no_grad
+from torch import Tensor
+from torch.nn import Module
 
 from modules.data import get_class_names, get_data_root_path, transform_image_to_tensor
 from modules.model import load_model
@@ -51,7 +52,7 @@ def predict_image(
         return ("Image transform error", 0.0)
 
     try:
-        with no_grad():
+        with torch.no_grad():
             device = next(model.parameters()).device
             output: Tensor = model(tensor.unsqueeze(0).to(device))
             probability = torch.sigmoid(output).cpu().item()
@@ -70,33 +71,18 @@ def predict_image(
         return ("Prediction error", 0.0)
 
 
-def generate_gradcam(
-    image: PillowImage.Image,
-    uploaded_model: File,
-    with_fsa: bool,
-    target_layer_index: int,
-) -> ndarray:
-    if image is None or uploaded_model is None:
-        return None
+def get_all_convolutional_layers(model: Module) -> list[tuple[str, str]]:
+    convolutional_layers = []
 
-    image = image.resize((224, 224))
+    for name, module in model.named_modules():
+        name: str
+        module: Module
 
-    try:
-        model_path = Path(uploaded_model.name)
-        model = load_model(model_path, with_fsa=with_fsa)
-        rgb_image = float32(image) / 255
-        input_tensor = transform_image_to_tensor(image).unsqueeze(0)
-        target_layers = [model.stages[target_layer_index]]
+        if isinstance(module, torch.nn.Conv2d):
+            display_name = name.replace(".", " > ")
+            convolutional_layers.append((display_name, name))
 
-        with GradCAMPlusPlus(model=model, target_layers=target_layers) as cam:
-            visualization = show_cam_on_image(
-                rgb_image, cam(input_tensor=input_tensor)[0, :], use_rgb=True
-            )
-
-        return visualization
-    except Exception as exception:
-        print(f"Grad-CAM error: {exception}")
-        return None
+    return convolutional_layers
 
 
 def update_layer_choices(uploaded_model: File, with_fsa: bool):
@@ -106,12 +92,39 @@ def update_layer_choices(uploaded_model: File, with_fsa: bool):
     try:
         model_path = Path(uploaded_model.name)
         model = load_model(model_path, with_fsa=with_fsa)
-        num_stages = len(model.stages)
-        choices = [(f"Stage {index}", index) for index in range(num_stages)]
-        return Dropdown(choices=choices, value=num_stages - 1)
+        layers = get_all_convolutional_layers(model)
+        default_value = layers[-1][1] if layers else None
+
+        return Dropdown(choices=layers, value=default_value)
     except Exception as exception:
         print(f"Update layer error {exception}")
         return Dropdown(choices=[], value=None)
+
+
+def generate_gradcam(image, uploaded_model, with_fsa, layer_name):
+    if image is None or uploaded_model is None or layer_name is None:
+        return None
+
+    image = image.resize((224, 224))
+
+    try:
+        model_path = Path(uploaded_model.name)
+        model = load_model(model_path, with_fsa=with_fsa)
+        rgb_image = numpy.float32(image) / 255
+        input_tensor = transform_image_to_tensor(image).unsqueeze(0)
+
+        target_layer = model.get_submodule(layer_name)
+        target_layers = [target_layer]
+
+        with GradCAMPlusPlus(model=model, target_layers=target_layers) as cam:
+            visualization = pytorch_grad_cam.utils.image.show_cam_on_image(
+                rgb_image, cam(input_tensor=input_tensor)[0, :], use_rgb=True
+            )
+
+        return visualization
+    except Exception as exception:
+        print(f"Grad-CAM error: {exception}")
+        return None
 
 
 def make_dashboard() -> Blocks:
