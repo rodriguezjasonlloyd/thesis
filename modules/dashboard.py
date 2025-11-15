@@ -154,6 +154,12 @@ def make_dashboard() -> Blocks:
             outputs=[layer_selector],
         )
 
+        fsa_checkbox.change(
+            fn=update_layer_choices,
+            inputs=[upload_model, fsa_checkbox],
+            outputs=[layer_selector],
+        )
+
         predict_button.click(
             fn=predict_image,
             inputs=[image_input, upload_model, fsa_checkbox],
