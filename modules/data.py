@@ -111,7 +111,9 @@ def get_data_loaders(
         )
 
         validation_dataset = ImageDataset(
-            items=[items[i] for i in validation_indices], pretrained=pretrained
+            items=[items[i] for i in validation_indices],
+            pretrained=pretrained,
+            augmented=False,
         )
 
         train_loader = DataLoader(
