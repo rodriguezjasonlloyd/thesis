@@ -128,90 +128,43 @@ def show_training_graphs(experiment_directory: Path) -> None:
         ("accuracy", "Accuracy (%)", "train_accuracy", "validation_accuracy"),
         ("precision", "Precision (%)", "train_precision", "validation_precision"),
         ("recall", "Recall (%)", "train_recall", "validation_recall"),
-        (
-            "f1_roc",
-            "Score (%)",
-            "train_f1_score",
-            "validation_f1_score",
-            "train_roc_auc",
-            "validation_roc_auc",
-        ),
+        ("f1_score", "F1 Score (%)", "train_f1_score", "validation_f1_score"),
+        ("roc_auc", "ROC-AUC (%)", "train_roc_auc", "validation_roc_auc"),
     ]
 
     for fold in fold_data:
         fold_number = fold["fold"]
 
         for metric_info in metrics:
-            if len(metric_info) == 4:
-                metric_name, y_label, train_key, validation_key = metric_info
+            metric_name, y_label, train_key, validation_key = metric_info
 
-                figure = Figure()
-                figure.add_trace(
-                    Scatter(
-                        x=fold["epochs"],
-                        y=fold[train_key],
-                        name=f"Train {metric_name.capitalize()}",
-                        mode="lines+markers",
-                    )
-                )
-                figure.add_trace(
-                    Scatter(
-                        x=fold["epochs"],
-                        y=fold[validation_key],
-                        name=f"Validation {metric_name.capitalize()}",
-                        mode="lines+markers",
-                        line=dict(dash="dash"),
-                    )
-                )
-            else:
-                (
-                    metric_name,
-                    y_label,
-                    train_f1,
-                    validation_f1,
-                    train_roc,
-                    validation_roc,
-                ) = metric_info
+            figure = Figure()
 
-                figure = Figure()
-                figure.add_trace(
-                    Scatter(
-                        x=fold["epochs"],
-                        y=fold[train_f1],
-                        name="Train F1",
-                        mode="lines+markers",
-                    )
+            figure.add_trace(
+                Scatter(
+                    x=fold["epochs"],
+                    y=fold[train_key],
+                    name=f"Train {metric_name.capitalize()}",
+                    mode="lines+markers",
                 )
-                figure.add_trace(
-                    Scatter(
-                        x=fold["epochs"],
-                        y=fold[validation_f1],
-                        name="Validation F1",
-                        mode="lines+markers",
-                        line=dict(dash="dash"),
-                    )
+            )
+
+            figure.add_trace(
+                Scatter(
+                    x=fold["epochs"],
+                    y=fold[validation_key],
+                    name=f"Validation {metric_name.capitalize()}",
+                    mode="lines+markers",
+                    line=dict(dash="dash"),
                 )
-                figure.add_trace(
-                    Scatter(
-                        x=fold["epochs"],
-                        y=fold[train_roc],
-                        name="Train ROC-AUC",
-                        mode="lines+markers",
-                        line=dict(dash="dot"),
-                    )
-                )
-                figure.add_trace(
-                    Scatter(
-                        x=fold["epochs"],
-                        y=fold[validation_roc],
-                        name="Validation ROC-AUC",
-                        mode="lines+markers",
-                        line=dict(dash="dashdot"),
-                    )
-                )
+            )
 
             figure.update_layout(
-                title=f"Fold {fold_number} - {metric_name.replace('_', ' ').title()}",
+                title={
+                    "text": f"Fold {fold_number} - {metric_name.replace('_', ' ').title()}",
+                    "x": 0.5,
+                    "xanchor": "center",
+                },
                 xaxis_title="Epoch",
                 yaxis_title=y_label,
                 height=400,
@@ -222,13 +175,11 @@ def show_training_graphs(experiment_directory: Path) -> None:
             output_path = graphs_directory / f"fold_{fold_number}_{metric_name}.png"
             figure.write_image(str(output_path))
 
-    print(f"Graphs saved to {graphs_directory}")
-
     num_folds = len(fold_data)
 
     figure = make_subplots(
         rows=num_folds,
-        cols=5,
+        cols=6,
         subplot_titles=[
             title
             for fold in fold_data
@@ -237,11 +188,12 @@ def show_training_graphs(experiment_directory: Path) -> None:
                 f"Fold {fold['fold']} Accuracy",
                 f"Fold {fold['fold']} Precision",
                 f"Fold {fold['fold']} Recall",
-                f"Fold {fold['fold']} F1 & ROC-AUC",
+                f"Fold {fold['fold']} F1",
+                f"Fold {fold['fold']} ROC-AUC",
             )
         ],
-        vertical_spacing=0.15,
-        horizontal_spacing=0.08,
+        vertical_spacing=0.05,
+        horizontal_spacing=0.025,
     )
 
     for index, fold in enumerate(fold_data):
@@ -259,6 +211,7 @@ def show_training_graphs(experiment_directory: Path) -> None:
             row=row,
             col=1,
         )
+
         figure.add_trace(
             Scatter(
                 x=fold["epochs"],
@@ -283,6 +236,7 @@ def show_training_graphs(experiment_directory: Path) -> None:
             row=row,
             col=2,
         )
+
         figure.add_trace(
             Scatter(
                 x=fold["epochs"],
@@ -307,6 +261,7 @@ def show_training_graphs(experiment_directory: Path) -> None:
             row=row,
             col=3,
         )
+
         figure.add_trace(
             Scatter(
                 x=fold["epochs"],
@@ -331,6 +286,7 @@ def show_training_graphs(experiment_directory: Path) -> None:
             row=row,
             col=4,
         )
+
         figure.add_trace(
             Scatter(
                 x=fold["epochs"],
@@ -355,6 +311,7 @@ def show_training_graphs(experiment_directory: Path) -> None:
             row=row,
             col=5,
         )
+
         figure.add_trace(
             Scatter(
                 x=fold["epochs"],
@@ -367,6 +324,7 @@ def show_training_graphs(experiment_directory: Path) -> None:
             row=row,
             col=5,
         )
+
         figure.add_trace(
             Scatter(
                 x=fold["epochs"],
@@ -377,8 +335,9 @@ def show_training_graphs(experiment_directory: Path) -> None:
                 line=dict(dash="dot"),
             ),
             row=row,
-            col=5,
+            col=6,
         )
+
         figure.add_trace(
             Scatter(
                 x=fold["epochs"],
@@ -389,7 +348,7 @@ def show_training_graphs(experiment_directory: Path) -> None:
                 legendgroup=f"fold{fold_number}",
             ),
             row=row,
-            col=5,
+            col=6,
         )
 
         figure.update_xaxes(title_text="Epoch", row=row, col=1)
@@ -397,11 +356,13 @@ def show_training_graphs(experiment_directory: Path) -> None:
         figure.update_xaxes(title_text="Epoch", row=row, col=3)
         figure.update_xaxes(title_text="Epoch", row=row, col=4)
         figure.update_xaxes(title_text="Epoch", row=row, col=5)
+        figure.update_xaxes(title_text="Epoch", row=row, col=6)
         figure.update_yaxes(title_text="Loss", row=row, col=1)
         figure.update_yaxes(title_text="Accuracy (%)", row=row, col=2)
         figure.update_yaxes(title_text="Precision (%)", row=row, col=3)
         figure.update_yaxes(title_text="Recall (%)", row=row, col=4)
         figure.update_yaxes(title_text="Score (%)", row=row, col=5)
+        figure.update_yaxes(title_text="Score (%)", row=row, col=6)
 
     figure.update_layout(
         title={
@@ -409,8 +370,8 @@ def show_training_graphs(experiment_directory: Path) -> None:
             "x": 0.5,
             "xanchor": "center",
         },
-        height=400 * num_folds,
-        width=2000,
+        height=300 * num_folds,
+        width=450 * len(metrics),
         showlegend=True,
     )
 
