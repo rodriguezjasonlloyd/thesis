@@ -4,7 +4,6 @@ from pathlib import Path
 import questionary
 from questionary import Choice, Separator
 
-from modules import analysis, dashboard, experiment
 from modules.state_machine import STATE_MACHINE, State, StateMachine
 
 EXPERIMENTS_PATH = Path("experiments")
@@ -137,6 +136,8 @@ def run():
             # TODO: implement
             state_machine.transition(State.AnalysisMenu)
         elif current == State.AnalyzeSampleBatch:
+            from modules import analysis
+
             analysis.analyze_sample_batch(pretrained=True)
             state_machine.transition(State.AnalysisMenu)
         elif current == State.AnalyzeTrainingGraphs:
@@ -156,6 +157,8 @@ def run():
             experiment_directory = EXPERIMENTS_PATH / selected_experiment
 
             try:
+                from modules import analysis
+
                 analysis.show_training_graphs(
                     experiment_directory, save_graphs=save_graphs
                 )
@@ -175,6 +178,8 @@ def run():
 
             for directory in directories:
                 try:
+                    from modules import experiment
+
                     experiment.run_experiment(directory)
                 except Exception as exception:
                     print(f"Error running experiment in {directory}: {exception}")
@@ -195,6 +200,8 @@ def run():
                     continue
 
                 try:
+                    from modules import experiment
+
                     experiment.run_experiment(experiment_directory)
                 except Exception as exception:
                     print(
@@ -203,6 +210,8 @@ def run():
 
             state_machine.transition(State.ExperimentMenu)
         elif current == State.LaunchDashboard:
+            from modules import dashboard
+
             dashboard.make_dashboard().launch()
             state_machine.transition(State.MainMenu)
 
