@@ -6,11 +6,13 @@ from gradio import (
     Blocks,
     Button,
     Checkbox,
+    Column,
     Dropdown,
     File,
     Image,
     Label,
     Markdown,
+    Radio,
     Row,
 )
 from gradio.utils import NamedString
@@ -25,6 +27,7 @@ from modules import data, model, utilities
 def predict_image(
     uploaded_model: NamedString | None,
     uploaded_image: PillowImage.Image | None,
+    architecture: str,
     with_fsa: bool,
 ) -> tuple[str, str]:
     if uploaded_model is None:
@@ -34,7 +37,9 @@ def predict_image(
         return ("No image uploaded", "")
 
     try:
-        loaded_model = model.load_model(Path(uploaded_model.name), with_fsa=with_fsa)
+        loaded_model = model.load_model(
+            Path(uploaded_model.name), architecture=architecture, with_fsa=with_fsa
+        )
     except Exception:
         return ("Something went wrong with loading the model", "")
 
@@ -60,14 +65,18 @@ def predict_image(
 
 
 def update_layer_choices(
-    uploaded_model: NamedString | None, with_fsa: bool
+    uploaded_model: NamedString | None,
+    architecture: str,
+    with_fsa: bool,
 ) -> Dropdown:
     if uploaded_model is None:
         choice = "Upload a model first"
         return Dropdown(choices=[choice], value=choice, interactive=False)
 
     try:
-        loaded_model = model.load_model(Path(uploaded_model.name), with_fsa=with_fsa)
+        loaded_model = model.load_model(
+            Path(uploaded_model.name), architecture=architecture, with_fsa=with_fsa
+        )
         layers = model.get_all_convolutional_layers(loaded_model)
         default_value = layers[-1][1] if layers else None
 
@@ -80,11 +89,14 @@ def update_layer_choices(
 def generate_cam(
     uploaded_model: NamedString,
     uploaded_image: PillowImage.Image,
+    architecture: str,
     with_fsa: bool,
     layer_name: str,
 ) -> PillowImage.Image | None:
     try:
-        loaded_model = model.load_model(Path(uploaded_model.name), with_fsa=with_fsa)
+        loaded_model = model.load_model(
+            Path(uploaded_model.name), architecture=architecture, with_fsa=with_fsa
+        )
         cam_extractor = GradCAMpp(loaded_model, target_layer=layer_name)
         output = loaded_model(utilities.image_to_tensor(uploaded_image).unsqueeze(0))
         class_index = output.squeeze(0).argmax().item()
@@ -105,9 +117,17 @@ def make_dashboard() -> Blocks:
     with Blocks() as dashboard:
         Markdown("# ConvNext V2 with Grad-CAM++ Dashboard for PCOM Classification")
 
-        fsa_checkbox = Checkbox(label="Use Focal Self-Attention (FSA)")
-        upload_model = File(label="Upload Model", file_types=[".pt"])
+        with Column(variant="panel"):
+            architecture_radio = Radio(
+                label="Architecture",
+                choices=[("Base CNN", "base"), ("ConvNeXt V2", "convnext")],
+                value="convnext",
+            )
 
+        with Column(variant="panel"):
+            fsa_checkbox = Checkbox(label="Use Focal Self-Attention (FSA)")
+
+        upload_model = File(label="Upload Model", file_types=[".pt"])
         upload_image = Image(type="pil", label="Upload Image", height=300)
         predict_button = Button("Predict")
 
@@ -124,27 +144,39 @@ def make_dashboard() -> Blocks:
         show_cam_button = Button("Show Grad-CAM++")
         cam_output = Image(label="Grad-CAM++ Visualization")
 
+        architecture_radio.change(
+            fn=update_layer_choices,
+            inputs=[upload_model, architecture_radio, fsa_checkbox],
+            outputs=[layer_selector],
+        )
+
         upload_model.change(
             fn=update_layer_choices,
-            inputs=[upload_model, fsa_checkbox],
+            inputs=[upload_model, architecture_radio, fsa_checkbox],
             outputs=[layer_selector],
         )
 
         fsa_checkbox.change(
             fn=update_layer_choices,
-            inputs=[upload_model, fsa_checkbox],
+            inputs=[upload_model, architecture_radio, fsa_checkbox],
             outputs=[layer_selector],
         )
 
         predict_button.click(
             fn=predict_image,
-            inputs=[upload_model, upload_image, fsa_checkbox],
+            inputs=[upload_model, upload_image, architecture_radio, fsa_checkbox],
             outputs=[predicted_label, predicted_confidence],
         )
 
         show_cam_button.click(
             fn=generate_cam,
-            inputs=[upload_model, upload_image, fsa_checkbox, layer_selector],
+            inputs=[
+                upload_model,
+                upload_image,
+                architecture_radio,
+                fsa_checkbox,
+                layer_selector,
+            ],
             outputs=cam_output,
         )
 
