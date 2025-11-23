@@ -27,6 +27,7 @@ class DataConfig:
 
 @dataclass
 class ModelConfig:
+    architecture: str = "convnext"
     pretrained: bool = False
     with_fsa: bool = False
 
@@ -86,10 +87,17 @@ def parse_config(config_path: Path) -> ExperimentConfig:
 
 
 def create_get_model(model_config: ModelConfig) -> Callable[[], Module]:
+    from modules.model import BaseCNN
+
     def get_model() -> Module:
-        return model.build_model(
-            pretrained=model_config.pretrained, with_fsa=model_config.with_fsa
-        )
+        if model_config.architecture == "base":
+            return BaseCNN()
+        elif model_config.architecture == "convnext":
+            return model.build_model(
+                pretrained=model_config.pretrained, with_fsa=model_config.with_fsa
+            )
+        else:
+            raise ValueError(f"Unknown architecture: {model_config.architecture}")
 
     return get_model
 
