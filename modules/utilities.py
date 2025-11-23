@@ -129,3 +129,12 @@ def setup_logging(log_directory: Path, level=logging.INFO):
         format="%(message)s",
         handlers=[logging.FileHandler(log_directory / "experiment.log")],
     )
+
+
+def format_file_size(size_bytes: float) -> str:
+    for unit in ["B", "KB", "MB", "GB"]:
+        if size_bytes < 1024.0:
+            return f"{size_bytes:.1f} {unit}"
+
+        size_bytes /= 1024.0
+    return f"{size_bytes:.1f} TB"
