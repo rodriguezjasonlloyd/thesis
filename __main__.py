@@ -133,7 +133,9 @@ def run():
         elif current == State.ExperimentMenu:
             experiment_menu(state_machine)
         elif current == State.AnalyzeDescriptive:
-            # TODO: implement
+            from modules import analysis
+
+            analysis.analyze_descriptive()
             state_machine.transition(State.AnalysisMenu)
         elif current == State.AnalyzeSampleBatch:
             from modules import analysis
