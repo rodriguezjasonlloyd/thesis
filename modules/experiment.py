@@ -1,16 +1,15 @@
-from dataclasses import dataclass, field
-from json import dump as json_dump
+import dataclasses
+import json
+import tomllib
+from dataclasses import dataclass
 from pathlib import Path
-from tomllib import load as toml_load
 from typing import Any, Callable, Iterator
 
 from torch.nn import BCEWithLogitsLoss, Module, Parameter
 from torch.optim import AdamW, Optimizer
 
-from modules import utilities
-from modules.data import get_data_loaders, get_data_root_path
-from modules.model import build_model
-from modules.trainer import train_model
+from modules import data, model, trainer, utilities
+from modules.preprocessing import PreprocessingMode
 
 
 @dataclass
@@ -21,6 +20,7 @@ class DataConfig:
     num_workers: int = 2
     max_items_per_class: int = 0
     augmented: bool = False
+    preprocessing: PreprocessingMode = PreprocessingMode.NONE
 
 
 @dataclass
@@ -44,63 +44,48 @@ class TrainingConfig:
 
 @dataclass
 class ExperimentConfig:
-    name: str
+    name: str = "Unnammed Experiment"
     seed: int = 42
-    data: DataConfig = field(default_factory=DataConfig)
-    model: ModelConfig = field(default_factory=ModelConfig)
-    optimizer: OptimizerConfig = field(default_factory=OptimizerConfig)
-    training: TrainingConfig = field(default_factory=TrainingConfig)
+    data: DataConfig = dataclasses.field(default_factory=DataConfig)
+    model: ModelConfig = dataclasses.field(default_factory=ModelConfig)
+    optimizer: OptimizerConfig = dataclasses.field(default_factory=OptimizerConfig)
+    training: TrainingConfig = dataclasses.field(default_factory=TrainingConfig)
 
 
 def parse_config(config_path: Path) -> ExperimentConfig:
     with open(config_path, "rb") as file:
-        raw_config = toml_load(file)
+        raw_config = tomllib.load(file)
 
-    name = raw_config.get("name", "unnamed_experiment")
-    seed = raw_config.get("seed", 42)
+    config_kwargs = {}
 
-    data_dict = raw_config.get("data", {})
-    data_config = DataConfig(
-        root=data_dict.get("root", "data"),
-        k_folds=data_dict.get("k_folds", 5),
-        batch_size=data_dict.get("batch_size", 32),
-        num_workers=data_dict.get("num_workers", 2),
-        max_items_per_class=data_dict.get("max_items_per_class", 0),
-        augmented=data_dict.get("augmented", False),
-    )
+    if "name" in raw_config:
+        config_kwargs["name"] = raw_config["name"]
+    if "seed" in raw_config:
+        config_kwargs["seed"] = raw_config["seed"]
 
-    model_dict = raw_config.get("model", {})
-    model_config = ModelConfig(
-        pretrained=model_dict.get("pretrained", False),
-        with_fsa=model_dict.get("with_fsa", False),
-    )
+    if "data" in raw_config:
+        data_dict = raw_config["data"].copy()
 
-    optimizer_dict = raw_config.get("optimizer", {})
-    optimizer_config = OptimizerConfig(
-        learning_rate=optimizer_dict.get("learning_rate", 1e-3),
-        weight_decay=optimizer_dict.get("weight_decay", 1e-4),
-    )
+        if "preprocessing" in data_dict:
+            data_dict["preprocessing"] = PreprocessingMode(data_dict["preprocessing"])
 
-    training_dict = raw_config.get("training", {})
-    training_config = TrainingConfig(
-        num_epochs=training_dict.get("num_epochs", 30),
-        patience=training_dict.get("patience", 5),
-        min_delta=training_dict.get("min_delta", 1e-3),
-    )
+        config_kwargs["data"] = DataConfig(**data_dict)
 
-    return ExperimentConfig(
-        name=name,
-        seed=seed,
-        data=data_config,
-        model=model_config,
-        optimizer=optimizer_config,
-        training=training_config,
-    )
+    if "model" in raw_config:
+        config_kwargs["model"] = ModelConfig(**raw_config["model"])
+
+    if "optimizer" in raw_config:
+        config_kwargs["optimizer"] = OptimizerConfig(**raw_config["optimizer"])
+
+    if "training" in raw_config:
+        config_kwargs["training"] = TrainingConfig(**raw_config["training"])
+
+    return ExperimentConfig(**config_kwargs)
 
 
 def create_get_model(model_config: ModelConfig) -> Callable[[], Module]:
     def get_model() -> Module:
-        return build_model(
+        return model.build_model(
             pretrained=model_config.pretrained, with_fsa=model_config.with_fsa
         )
 
@@ -142,14 +127,13 @@ def run_experiment(experiment_directory: Path) -> dict[str, Any]:
 
     config = parse_config(config_path)
 
-    print(f"Running experiment: {experiment_directory} - {config.name}")
-
     utilities.seed_all(config.seed)
 
-    fold_loaders = get_data_loaders(
-        root=get_data_root_path(config.data.root),
+    fold_loaders = data.get_data_loaders(
+        root=data.get_data_root_path(config.data.root),
         pretrained=config.model.pretrained,
         augmented=config.data.augmented,
+        preprocessing=config.data.preprocessing,
         k_folds=config.data.k_folds,
         batch_size=config.data.batch_size,
         num_workers=config.data.num_workers,
@@ -160,7 +144,7 @@ def run_experiment(experiment_directory: Path) -> dict[str, Any]:
     get_optimizer = create_get_optimizer(config.optimizer)
     criterion = get_criterion()
 
-    results = train_model(
+    train_results = trainer.train_model(
         experiment_directory=experiment_directory,
         get_model=get_model,
         get_optimizer=get_optimizer,
@@ -171,38 +155,25 @@ def run_experiment(experiment_directory: Path) -> dict[str, Any]:
         min_delta=config.training.min_delta,
     )
 
-    results["experiment_name"] = config.name
-    results["experiment_directory"] = str(experiment_directory)
-    results["config"] = {
-        "seed": config.seed,
-        "data": config.data.__dict__,
-        "model": config.model.__dict__,
-        "optimizer": config.optimizer.__dict__,
-        "training": config.training.__dict__,
+    results = {
+        "experiment_name": config.name,
+        "experiment_directory": str(experiment_directory),
+        "config": {
+            "seed": config.seed,
+            "data": utilities.dataclass_to_dict(config.data),
+            "model": utilities.dataclass_to_dict(config.model),
+            "optimizer": utilities.dataclass_to_dict(config.optimizer),
+            "training": utilities.dataclass_to_dict(config.training),
+        },
+        "k_folds": train_results["k_folds"],
+        "average_validation_loss": train_results["average_validation_loss"],
+        "average_validation_accuracy": train_results["average_validation_accuracy"],
+        "fold_results": train_results["fold_results"],
     }
 
     results_path = experiment_directory / "results.json"
-    results_to_save = {
-        "experiment_name": results["experiment_name"],
-        "experiment_directory": results["experiment_directory"],
-        "config": results["config"],
-        "average_validation_loss": results["average_validation_loss"],
-        "average_validation_accuracy": results["average_validation_accuracy"],
-        "k_folds": results["k_folds"],
-        "fold_results": [
-            {
-                "fold": fold["fold"],
-                "best_validation_loss": fold["best_validation_loss"],
-                "best_validation_accuracy": fold["best_validation_accuracy"],
-                "epoch_history": fold["epoch_history"],
-            }
-            for fold in results["fold_results"]
-        ],
-    }
 
-    with open(results_path, "w") as f:
-        json_dump(results_to_save, f, indent=2)
-
-    print(f"Results saved to {results_path}")
+    with open(results_path, "w") as file:
+        json.dump(results, file, indent=2)
 
     return results
