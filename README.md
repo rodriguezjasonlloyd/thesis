@@ -32,6 +32,7 @@ thesis/
 │       ├── graphs/           # Training visualization graphs
 │       ├── models/           # Saved model checkpoints
 │       ├── config.toml       # Experiment configuration
+│       ├── experiment.log    # Experiment logs
 │       └── results.json      # Training results
 ├── modules/
 │   ├── analysis.py           # Analysis and plotting
@@ -204,6 +205,12 @@ The dashboard allows you to:
 ## Output Files
 
 After training, each experiment directory contains:
+
+### `experiment.log`
+Detailed logging output including:
+- Training progress for each fold and epoch
+- Metric updates and early stopping events
+- Timing information
 
 ### `results.json`
 Complete training results including:
