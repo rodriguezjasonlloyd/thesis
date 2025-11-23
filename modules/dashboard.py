@@ -1,8 +1,7 @@
 from pathlib import Path
 
-import numpy
-import pytorch_grad_cam
 import torch
+import torchcam
 from gradio import (
     Blocks,
     Button,
@@ -14,125 +13,116 @@ from gradio import (
     Markdown,
     Row,
 )
+from gradio.utils import NamedString
 from PIL import Image as PillowImage
-from pytorch_grad_cam.grad_cam_plusplus import GradCAMPlusPlus
 from torch import Tensor
+from torchcam.methods import GradCAMpp
+from torchvision import transforms
 
-from modules import model, utilities
-from modules.data import get_class_names, get_data_root_path
-from modules.model import load_model
-from modules.trainer import truncate
+from modules import data, model, utilities
 
 
 def predict_image(
-    image: PillowImage.Image, uploaded_model: File, with_fsa: bool
+    uploaded_model: NamedString | None,
+    uploaded_image: PillowImage.Image | None,
+    with_fsa: bool,
 ) -> tuple[str, str]:
-    if image is None:
-        return ("No image provided", 0.0)
-
     if uploaded_model is None:
-        return ("No model file uploaded", 0.0)
+        return ("No model uploaded", "")
+
+    if uploaded_image is None:
+        return ("No image uploaded", "")
 
     try:
-        model_path = Path(uploaded_model.name)
-    except Exception as exception:
-        print(f"Error reading uploaded file: {exception}")
-        return ("Error reading uploaded file", 0.0)
+        loaded_model = model.load_model(Path(uploaded_model.name), with_fsa=with_fsa)
+    except Exception:
+        return ("Something went wrong with loading the model", "")
 
-    try:
-        loaded_model = load_model(model_path, with_fsa=with_fsa)
-    except Exception as exception:
-        print(f"Model load error: {exception}")
-        return ("Model load error", 0.0)
-
-    try:
-        tensor = utilities.image_to_tensor(image)
-    except Exception as exception:
-        print(f"Image transform error: {exception}")
-        return ("Image transform error", 0.0)
+    image_tensor = utilities.image_to_tensor(uploaded_image)
 
     try:
         with torch.no_grad():
             device = next(loaded_model.parameters()).device
-            output: Tensor = loaded_model(tensor.unsqueeze(0).to(device))
+            output: Tensor = loaded_model(image_tensor.unsqueeze(0).to(device))
             probability = torch.sigmoid(output).cpu().item()
             prediction_index = int(probability > 0.5)
 
-        classes = get_class_names(get_data_root_path())
-        label = classes[prediction_index]
         predicted_class_probability = (
             probability if prediction_index == 1 else (1.0 - probability)
         )
-        confidence = f"{truncate(predicted_class_probability * 100.0, 2)}%"
 
-        return (label, confidence)
-    except Exception as exception:
-        print(f"Prediction error: {exception}")
-        return ("Prediction error", 0.0)
+        return (
+            data.get_class_names(data.get_data_root_path())[prediction_index],
+            f"{utilities.truncate(predicted_class_probability * 100.0, 2)}%",
+        )
+    except Exception:
+        return ("Something went wrong with prediction", "")
 
 
-def update_layer_choices(uploaded_model: File, with_fsa: bool):
+def update_layer_choices(
+    uploaded_model: NamedString | None, with_fsa: bool
+) -> Dropdown:
     if uploaded_model is None:
-        return Dropdown(choices=[], value=None)
+        choice = "Upload a model first"
+        return Dropdown(choices=[choice], value=choice, interactive=False)
 
     try:
-        model_path = Path(uploaded_model.name)
-        loaded_model = load_model(model_path, with_fsa=with_fsa)
+        loaded_model = model.load_model(Path(uploaded_model.name), with_fsa=with_fsa)
         layers = model.get_all_convolutional_layers(loaded_model)
         default_value = layers[-1][1] if layers else None
 
-        return Dropdown(choices=layers, value=default_value)
-    except Exception as exception:
-        print(f"Update layer error {exception}")
-        return Dropdown(choices=[], value=None)
+        return Dropdown(choices=layers, value=default_value, interactive=True)
+    except Exception:
+        choice = "Something went wrong with updating layer choices"
+        return Dropdown(choices=[choice], value=choice, interactive=False)
 
 
-def generate_gradcam(image, uploaded_model, with_fsa, layer_name):
-    if image is None or uploaded_model is None or layer_name is None:
-        return None
-
-    image = image.resize((224, 224))
-
+def generate_cam(
+    uploaded_model: NamedString,
+    uploaded_image: PillowImage.Image,
+    with_fsa: bool,
+    layer_name: str,
+) -> PillowImage.Image | None:
     try:
-        model_path = Path(uploaded_model.name)
-        model = load_model(model_path, with_fsa=with_fsa)
-        rgb_image = numpy.float32(image) / 255
-        input_tensor = utilities.image_to_tensor(image).unsqueeze(0)
+        loaded_model = model.load_model(Path(uploaded_model.name), with_fsa=with_fsa)
+        cam_extractor = GradCAMpp(loaded_model, target_layer=layer_name)
+        output = loaded_model(utilities.image_to_tensor(uploaded_image).unsqueeze(0))
+        class_index = output.squeeze(0).argmax().item()
 
-        target_layer = model.get_submodule(layer_name)
-        target_layers = [target_layer]
+        activation_map = cam_extractor(class_index, output)
+        heatmap = transforms.functional.to_pil_image(
+            activation_map[0].squeeze(0), mode="F"
+        )
+        result = torchcam.utils.overlay_mask(uploaded_image, heatmap, alpha=0.5)
+        cam_extractor.clear_hooks()
 
-        with GradCAMPlusPlus(model=model, target_layers=target_layers) as cam:
-            visualization = pytorch_grad_cam.utils.image.show_cam_on_image(
-                rgb_image, cam(input_tensor=input_tensor)[0, :], use_rgb=True
-            )
-
-        return visualization
-    except Exception as exception:
-        print(f"Grad-CAM error: {exception}")
+        return result
+    except Exception:
         return None
 
 
 def make_dashboard() -> Blocks:
     with Blocks() as dashboard:
-        Markdown(
-            "# ConvNext V2 Model with Focal Self-Attention and Grad-CAM++ for PCOM Classification using Ultrasound Images"
-        )
+        Markdown("# ConvNext V2 with Grad-CAM++ Dashboard for PCOM Classification")
 
-        Markdown("Note: The uploaded model architecture should match the FSA checkbox.")
         fsa_checkbox = Checkbox(label="Use Focal Self-Attention (FSA)")
-        upload_model = File(label="Upload model (.pt)")
+        upload_model = File(label="Upload Model", file_types=[".pt"])
 
-        image_input = Image(type="pil", label="Upload image", height=224)
+        upload_image = Image(type="pil", label="Upload Image", height=300)
         predict_button = Button("Predict")
 
         with Row():
-            predicted_label = Label(label="Predicted label")
+            predicted_label = Label(label="Predicted Label")
             predicted_confidence = Label(label="Confidence")
 
-        layer_selector = Dropdown(label="Target Layer", choices=[], value=None)
-        show_gradcam_button = Button("Show Grad-CAM++")
-        gradcam_output = Image(label="Grad-CAM++ Visualization")
+        layer_selector = Dropdown(
+            label="Target Layer",
+            choices=["Upload a model first"],
+            value="Upload a model first",
+            interactive=False,
+        )
+        show_cam_button = Button("Show Grad-CAM++")
+        cam_output = Image(label="Grad-CAM++ Visualization")
 
         upload_model.change(
             fn=update_layer_choices,
@@ -148,14 +138,14 @@ def make_dashboard() -> Blocks:
 
         predict_button.click(
             fn=predict_image,
-            inputs=[image_input, upload_model, fsa_checkbox],
+            inputs=[upload_model, upload_image, fsa_checkbox],
             outputs=[predicted_label, predicted_confidence],
         )
 
-        show_gradcam_button.click(
-            fn=generate_gradcam,
-            inputs=[image_input, upload_model, fsa_checkbox, layer_selector],
-            outputs=gradcam_output,
+        show_cam_button.click(
+            fn=generate_cam,
+            inputs=[upload_model, upload_image, fsa_checkbox, layer_selector],
+            outputs=cam_output,
         )
 
     return dashboard
