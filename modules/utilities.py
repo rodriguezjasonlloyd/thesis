@@ -1,5 +1,7 @@
+import dataclasses
 import random
-from typing import Literal
+from enum import Enum
+from typing import Literal, TypeVar
 
 import numpy
 import torch
@@ -97,3 +99,23 @@ def get_device() -> torch.device:
         return torch.device("cuda")
     else:
         return torch.device("cpu")
+
+
+T = TypeVar("T")
+
+
+def dataclass_to_dict(object: T) -> dict[str, int | float | str | bool]:
+    if not dataclasses.is_dataclass(object):
+        raise TypeError(f"Expected dataclass, got '{type(object)}'")
+
+    result: dict[str, int | float | str | bool] = {}
+
+    for field in dataclasses.fields(object):
+        value = getattr(object, field.name)
+
+        if isinstance(value, Enum):
+            result[field.name] = value.value
+        else:
+            result[field.name] = value
+
+    return result
