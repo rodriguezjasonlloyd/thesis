@@ -7,17 +7,23 @@ from torch import Tensor
 from torch.utils.data import DataLoader, Dataset
 
 from modules import utilities
+from modules.preprocessing import PreprocessingMode
 
 EXTENSIONS = (".jpg", ".jpeg", ".png")
 
 
 class ImageDataset(Dataset):
     def __init__(
-        self, items: list[tuple[Path, int]], pretrained: bool, augmented: bool
+        self,
+        items: list[tuple[Path, int]],
+        pretrained: bool,
+        augmented: bool,
+        preprocessing: PreprocessingMode,
     ) -> None:
         self._items = items
         self._pretrained = pretrained
         self._augmented = augmented
+        self._preprocessing = preprocessing
 
     def __len__(self) -> int:
         return len(self._items)
@@ -29,7 +35,7 @@ class ImageDataset(Dataset):
             image = file.convert("RGB")
 
         return utilities.image_to_tensor(
-            image, self._pretrained, self._augmented
+            image, self._pretrained, self._augmented, self._preprocessing
         ), label
 
 
@@ -48,6 +54,7 @@ def get_data_loaders(
     root: Path = get_data_root_path(),
     pretrained: bool = False,
     augmented: bool = False,
+    preprocessing: PreprocessingMode = PreprocessingMode.NONE,
     k_folds: int = 5,
     batch_size: int = 32,
     num_workers: int = 2,
@@ -101,12 +108,14 @@ def get_data_loaders(
             items=[items[i] for i in train_indices],
             pretrained=pretrained,
             augmented=augmented,
+            preprocessing=preprocessing,
         )
 
         validation_dataset = ImageDataset(
             items=[items[i] for i in validation_indices],
             pretrained=pretrained,
             augmented=False,
+            preprocessing=preprocessing,
         )
 
         train_loader = DataLoader(
