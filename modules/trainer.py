@@ -1,19 +1,15 @@
 from datetime import datetime
 from pathlib import Path
-from random import seed as random_seed
 from typing import Any, Callable, Iterator
 from warnings import filterwarnings
 
 import torch
-from numpy.random import seed as np_seed
 from rich.console import Console
 from rich.table import Table
 from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_score
-from torch import Tensor, device, manual_seed, no_grad
+from torch import Tensor, no_grad
 from torch import cat as torch_cat
 from torch import save as torch_save
-from torch.cuda import is_available as is_cuda_available
-from torch.cuda import manual_seed_all
 from torch.nn import Module, Parameter
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import CosineAnnealingLR
@@ -22,36 +18,10 @@ from torchmetrics.classification import BinaryConfusionMatrix
 from tqdm.rich import tqdm
 from tqdm.std import TqdmExperimentalWarning
 
+from modules import utilities
 from modules.data import ImageDataset
 
 console = Console()
-
-
-def seed_all(seed: int) -> None:
-    manual_seed(seed)
-    manual_seed_all(seed)
-    np_seed(seed)
-    random_seed(seed)
-
-
-def truncate(number, decimals=0):
-    multiplier = 10**decimals
-    return int(number * multiplier) / multiplier
-
-
-def format_duration(seconds: float) -> str:
-    hours = int(seconds // 3600)
-    minutes = int((seconds % 3600) // 60)
-    secs = int(seconds % 60)
-    millis = int((seconds % 1) * 1000)
-    return f"{hours:02d}:{minutes:02d}:{secs:02d}.{millis:03d}"
-
-
-def get_device() -> device:
-    if is_cuda_available():
-        return device("cuda")
-    else:
-        return device("cpu")
 
 
 def compute_accuracy(output: Tensor, target: Tensor) -> float:
@@ -111,7 +81,7 @@ def train_model(
     models_directory.mkdir(exist_ok=True)
 
     experiment_start_time = datetime.now()
-    device = get_device()
+    device = torch.get_device()
     criterion = criterion.to(device)
 
     k_folds = len(fold_loaders)
@@ -263,25 +233,27 @@ def train_model(
 
             table.add_row(
                 "Train",
-                f"{truncate(average_train_loss, 4):.4f}",
-                f"{truncate(average_train_accuracy, 2):.2f}%",
-                f"{truncate(train_metrics['precision'], 2):.2f}%",
-                f"{truncate(train_metrics['recall'], 2):.2f}%",
-                f"{truncate(train_metrics['f1_score'], 2):.2f}%",
-                f"{truncate(train_metrics['roc_auc'], 2):.2f}%",
+                f"{utilities.truncate(average_train_loss, 4):.4f}",
+                f"{utilities.truncate(average_train_accuracy, 2):.2f}%",
+                f"{utilities.truncate(train_metrics['precision'], 2):.2f}%",
+                f"{utilities.truncate(train_metrics['recall'], 2):.2f}%",
+                f"{utilities.truncate(train_metrics['f1_score'], 2):.2f}%",
+                f"{utilities.truncate(train_metrics['roc_auc'], 2):.2f}%",
             )
             table.add_row(
                 "Validation",
-                f"{truncate(average_validation_loss, 4):.4f}",
-                f"{truncate(average_validation_accuracy, 2):.2f}%",
-                f"{truncate(validation_metrics['precision'], 2):.2f}%",
-                f"{truncate(validation_metrics['recall'], 2):.2f}%",
-                f"{truncate(validation_metrics['f1_score'], 2):.2f}%",
-                f"{truncate(validation_metrics['roc_auc'], 2):.2f}%",
+                f"{utilities.truncate(average_validation_loss, 4):.4f}",
+                f"{utilities.truncate(average_validation_accuracy, 2):.2f}%",
+                f"{utilities.truncate(validation_metrics['precision'], 2):.2f}%",
+                f"{utilities.truncate(validation_metrics['recall'], 2):.2f}%",
+                f"{utilities.truncate(validation_metrics['f1_score'], 2):.2f}%",
+                f"{utilities.truncate(validation_metrics['roc_auc'], 2):.2f}%",
             )
 
             console.print(table)
-            console.print(f"[dim]Took {format_duration(epoch_duration)}[/dim]")
+            console.print(
+                f"[dim]Took {utilities.format_duration(epoch_duration)}[/dim]"
+            )
 
             if epochs_without_improvement >= patience:
                 console.print(
@@ -306,10 +278,12 @@ def train_model(
 
         console.print(
             f"[bold green]Fold {fold_index + 1} completed[/bold green] - "
-            f"Best Validation Loss: {truncate(best_validation_loss, 4):.4f}, "
-            f"Best Validation Accuracy: {truncate(best_validation_accuracy, 2):.2f}%"
+            f"Best Validation Loss: {utilities.truncate(best_validation_loss, 4):.4f}, "
+            f"Best Validation Accuracy: {utilities.truncate(best_validation_accuracy, 2):.2f}%"
         )
-        console.print(f"[dim]Fold took {format_duration(fold_duration)}[/dim]\n")
+        console.print(
+            f"[dim]Fold took {utilities.format_duration(fold_duration)}[/dim]\n"
+        )
 
         confusion_matrix_table = Table(
             title=f"Confusion Matrix - Fold {fold_index + 1}"
@@ -345,13 +319,13 @@ def train_model(
 
     console.print("[bold cyan]K-Fold Cross Validation Results[/bold cyan]")
     console.print(
-        f"Average Validation Loss: [magenta]{truncate(average_validation_loss, 4):.4f}[/magenta]"
+        f"Average Validation Loss: [magenta]{utilities.truncate(average_validation_loss, 4):.4f}[/magenta]"
     )
     console.print(
-        f"Average Validation Accuracy: [green]{truncate(average_validation_accuracy, 2):.2f}%[/green]"
+        f"Average Validation Accuracy: [green]{utilities.truncate(average_validation_accuracy, 2):.2f}%[/green]"
     )
     console.print(
-        f"[bold]Total experiment time: {format_duration(experiment_duration)}[/bold]\n"
+        f"[bold]Total experiment time: {utilities.format_duration(experiment_duration)}[/bold]\n"
     )
 
     return {

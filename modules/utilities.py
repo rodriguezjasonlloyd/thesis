@@ -1,6 +1,8 @@
+import random
 from typing import Literal
 
 import numpy
+import torch
 from albumentations import CoarseDropout, HorizontalFlip
 from albumentations import Compose as AlbumentationsCompose
 from PIL import Image
@@ -68,3 +70,30 @@ def tensor_to_numpy(
     tuple[Literal[224], Literal[224], Literal[3]], numpy.dtype[numpy.float32]
 ]:
     return tensor.permute(1, 2, 0).numpy()
+
+
+def seed_all(seed: int) -> None:
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    numpy.random.seed(seed)
+    random.seed(seed)
+
+
+def truncate(number: float, decimals: int = 0):
+    multiplier = 10**decimals
+    return int(number * multiplier) / multiplier
+
+
+def format_duration(seconds: float) -> str:
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+    millis = int((seconds % 1) * 1000)
+    return f"{hours:02d}:{minutes:02d}:{secs:02d}.{millis:03d}"
+
+
+def get_device() -> torch.device:
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    else:
+        return torch.device("cpu")
