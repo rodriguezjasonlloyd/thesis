@@ -2,163 +2,122 @@ import os
 from pathlib import Path
 
 import questionary
+from questionary import Choice, Separator
 
 from modules import analysis, dashboard, experiment
-from modules.state_machine import State, StateMachine
+from modules.state_machine import STATE_MACHINE, State, StateMachine
+
+EXPERIMENTS_PATH = Path("experiments")
 
 
 def clear_terminal() -> None:
     os.system("cls" if os.name == "nt" else "clear")
 
 
-def get_directories(path: str) -> list[str]:
-    return [
-        directory
-        for directory in os.listdir(path)
-        if os.path.isdir(os.path.join(path, directory))
+def select_experiments_with_config(path: Path = EXPERIMENTS_PATH) -> list[str] | None:
+    directories = [
+        directory.name
+        for directory in path.iterdir()
+        if directory.is_dir() and (directory / "config.toml").exists()
     ]
-
-
-def select_directories(path: str = "experiments") -> list[str]:
-    directories = get_directories(path)
 
     if not directories:
-        print(f"No directories found in {path}")
+        print("No experiments with config.toml found")
         return None
 
-    questions = [
-        {
-            "type": "checkbox",
-            "name": "selected_directories",
-            "message": "Select directories:",
-            "choices": directories,
-        }
-    ]
+    selected = questionary.checkbox(
+        "Select Directories:",
+        choices=[Choice(directory) for directory in directories],
+    ).ask()
 
-    answer = questionary.prompt(questions)
-
-    return answer.get("selected_directories") if answer else []
+    return selected
 
 
-def select_experiment_with_results() -> str:
-    experiments_path = Path("experiments")
-
-    if not experiments_path.exists():
-        print("Experiments directory not found")
-        return None
-
-    experiment_directories = [
+def select_experiment_with_results(path: Path = EXPERIMENTS_PATH) -> str | None:
+    directories = [
         directory.name
-        for directory in experiments_path.iterdir()
+        for directory in path.iterdir()
         if directory.is_dir() and (directory / "results.json").exists()
     ]
 
-    if not experiment_directories:
+    if not directories:
         print("No experiments with results.json found")
         return None
 
-    questions = [
-        {
-            "type": "select",
-            "name": "selected_experiment",
-            "message": "Select experiment:",
-            "choices": experiment_directories,
-        }
-    ]
+    selected_experiment = questionary.select(
+        "Select experiment:",
+        choices=[Choice(directory) for directory in directories]
+        + [Separator(), Choice("Back", value="back", shortcut_key="q")],
+        use_shortcuts=True,
+    ).ask()
 
-    answer = questionary.prompt(questions)
-
-    return answer.get("selected_experiment") if answer else None
+    return selected_experiment
 
 
 def main_menu(state_machine: StateMachine):
     clear_terminal()
 
-    main_questions = [
-        {
-            "type": "select",
-            "name": "operation",
-            "message": "What would you like to do?",
-            "choices": ["Analysis", "Experiment", "Launch Dashboard", "Quit"],
-        }
-    ]
+    operation = questionary.select(
+        "What would you like to do?",
+        choices=[
+            Choice("Analysis", value="analysis"),
+            Choice("Experiment", value="experiment"),
+            Choice("Launch Dashboard", value="dashboard"),
+            Choice("Quit", value="quit", shortcut_key="q"),
+        ],
+        use_shortcuts=True,
+    ).ask()
 
-    answer = questionary.prompt(main_questions)
-
-    if not answer:
-        return
-
-    operation = answer.get("operation")
-
-    if operation == "Quit":
+    if operation == "quit":
         state_machine.transition(State.Quit)
-    elif operation == "Analysis":
-        state_machine.transition(State.AnalyzeMenu)
-    elif operation == "Experiment":
+    elif operation == "analysis":
+        state_machine.transition(State.AnalysisMenu)
+    elif operation == "experiment":
         state_machine.transition(State.ExperimentMenu)
-    elif operation == "Launch Dashboard":
+    elif operation == "dashboard":
         state_machine.transition(State.LaunchDashboard)
 
 
-def analyze_menu(state_machine: StateMachine):
-    analyze_questions = [
-        {
-            "type": "select",
-            "name": "analysis_type",
-            "message": "Select analysis type:",
-            "choices": [
-                "Descriptive",
-                "Sample Batch",
-                "Show Training Graphs",
-                "Back",
-                "Quit",
-            ],
-        }
-    ]
+def analysis_menu(state_machine: StateMachine):
+    operation = questionary.select(
+        "Select analysis type:",
+        choices=[
+            Choice("Descriptive", value="descriptive"),
+            Choice("Sample Batch", value="sample_batch"),
+            Choice("Show Training Graphs", value="training_graphs"),
+            Choice("Back", value="back", shortcut_key="q"),
+        ],
+        use_shortcuts=True,
+    ).ask()
 
-    answer = questionary.prompt(analyze_questions)
-
-    if not answer:
-        return
-
-    analysis_type = answer.get("analysis_type")
-
-    if analysis_type == "Quit":
-        state_machine.transition(State.Quit)
-    elif analysis_type == "Back":
+    if operation == "back":
         state_machine.transition(State.MainMenu)
-    elif analysis_type == "Descriptive":
+    elif operation == "descriptive":
         state_machine.transition(State.AnalyzeDescriptive)
-    elif analysis_type == "Sample Batch":
+    elif operation == "sample_batch":
         state_machine.transition(State.AnalyzeSampleBatch)
-    elif analysis_type == "Show Training Graphs":
+    elif operation == "training_graphs":
         state_machine.transition(State.AnalyzeTrainingGraphs)
 
 
 def experiment_menu(state_machine: StateMachine):
-    experiment_questions = [
-        {
-            "type": "select",
-            "name": "experiment_type",
-            "message": "Select experiment type:",
-            "choices": ["All", "Selected", "Back", "Quit"],
-        }
-    ]
+    operation = questionary.select(
+        "Select experiment type:",
+        choices=[
+            Choice("All", value="all"),
+            Choice("Selected", value="selected"),
+            Choice("Back", value="back", shortcut_key="q"),
+        ],
+        use_shortcuts=True,
+    ).ask()
 
-    answer = questionary.prompt(experiment_questions)
-
-    if not answer:
-        return
-
-    experiment_type = answer.get("experiment_type")
-
-    if experiment_type == "Quit":
+    if operation == "quit":
         state_machine.transition(State.Quit)
-    elif experiment_type == "Back":
+    elif operation == "back":
         state_machine.transition(State.MainMenu)
-    elif experiment_type == "All":
+    elif operation == "all":
         state_machine.transition(State.ExperimentAll)
-    elif experiment_type == "Selected":
+    elif operation == "selected":
         state_machine.transition(State.ExperimentSelected)
 
 
@@ -170,78 +129,73 @@ def run():
 
         if current == State.MainMenu:
             main_menu(state_machine)
-        elif current == State.AnalyzeMenu:
-            analyze_menu(state_machine)
+        elif current == State.AnalysisMenu:
+            analysis_menu(state_machine)
         elif current == State.ExperimentMenu:
             experiment_menu(state_machine)
         elif current == State.AnalyzeDescriptive:
             # TODO: implement
-            state_machine.transition(State.AnalyzeMenu)
+            state_machine.transition(State.AnalysisMenu)
         elif current == State.AnalyzeSampleBatch:
             analysis.analyze_sample_batch(pretrained=True)
-            state_machine.transition(State.AnalyzeMenu)
+            state_machine.transition(State.AnalysisMenu)
         elif current == State.AnalyzeTrainingGraphs:
             selected_experiment = select_experiment_with_results()
 
-            if selected_experiment:
-                experiment_directory = Path("experiments") / selected_experiment
-
-                try:
-                    analysis.show_training_graphs(
-                        experiment_directory, save_graphs=True
-                    )
-                except Exception as exception:
-                    print(
-                        f"Error showing graphs for {selected_experiment}: {exception}"
-                    )
-
-            state_machine.transition(State.AnalyzeMenu)
-        elif current == State.ExperimentAll:
-            experiments_path = Path("experiments")
-
-            if not experiments_path.exists():
-                print("Experiments directory not found")
+            if selected_experiment == "back":
+                state_machine.transition(State.AnalysisMenu)
                 continue
 
-            experiment_directories = [
+            save_graphs = questionary.confirm(
+                "Also save graphs? (Slower)", default=False
+            ).ask()
+
+            if save_graphs is None:
+                continue
+
+            experiment_directory = EXPERIMENTS_PATH / selected_experiment
+
+            try:
+                analysis.show_training_graphs(
+                    experiment_directory, save_graphs=save_graphs
+                )
+                state_machine.transition(State.AnalysisMenu)
+            except Exception as exception:
+                print(f"Error showing graphs for {selected_experiment}: {exception}")
+
+        elif current == State.ExperimentAll:
+            directories = [
                 directory
-                for directory in experiments_path.iterdir()
+                for directory in EXPERIMENTS_PATH.iterdir()
                 if directory.is_dir() and (directory / "config.toml").exists()
             ]
 
-            if not experiment_directories:
+            if not directories:
                 print("No valid experiments found")
-                continue
 
-            for experiment_directory in experiment_directories:
+            for directory in directories:
                 try:
-                    results = experiment.run_experiment(experiment_directory)
-                    print(f"Experiment completed: {results['experiment_name']}")
+                    experiment.run_experiment(directory)
                 except Exception as exception:
-                    print(
-                        f"Error running experiment in {experiment_directory}: {exception}"
-                    )
+                    print(f"Error running experiment in {directory}: {exception}")
 
             state_machine.transition(State.ExperimentMenu)
         elif current == State.ExperimentSelected:
-            selected_directories = select_directories()
+            selected_experiments = select_experiments_with_config()
 
-            if not selected_directories:
-                print("No experiments selected")
+            if not selected_experiments:
+                state_machine.transition(State.ExperimentMenu)
                 continue
 
-            experiments_path = Path("experiments")
-
-            for directory_name in selected_directories:
-                experiment_directory = experiments_path / directory_name
+            for directory in selected_experiments:
+                experiment_directory = EXPERIMENTS_PATH / directory
 
                 if not (experiment_directory / "config.toml").exists():
-                    print(f"Skipping {directory_name}: no config.toml found")
+                    print(f"Skipping {directory}: no config.toml found")
                     continue
 
                 try:
-                    results = experiment.run_experiment(experiment_directory)
-                    print(f"Experiment completed: {results['experiment_name']}")
+                    experiment.run_experiment(experiment_directory)
                 except Exception as exception:
                     print(
                         f"Error running experiment in {experiment_directory}: {exception}"
@@ -251,8 +205,6 @@ def run():
         elif current == State.LaunchDashboard:
             dashboard.make_dashboard().launch()
             state_machine.transition(State.MainMenu)
-
-    print("Goodbye!")
 
 
 run()
