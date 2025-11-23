@@ -1,15 +1,16 @@
-# PCOS Classification with ConvNeXt V2
+# PCOS Classification
 
-A deep learning project for PCOS (Polycystic Ovary Syndrome) classification using ConvNeXt V2 architecture with optional Focal Self-Attention (FSA) mechanism. Features k-fold cross-validation, comprehensive preprocessing options, and an interactive Gradio dashboard for inference with Grad-CAM++ visualizations.
+A deep learning project for PCOS (Polycystic Ovary Syndrome) classification supporting multiple CNN architectures including a simple baseline CNN and ConvNeXt V2 with optional Focal Self-Attention (FSA) mechanism. Features k-fold cross-validation, comprehensive preprocessing options, and an interactive Gradio dashboard for inference with Grad-CAM++ visualizations.
 
 ## Features
 
-- **ConvNeXt V2 Architecture**: State-of-the-art CNN with optional pretrained weights
-- **Focal Self-Attention**: Enhanced attention mechanism for improved feature learning
+- **Multiple Architectures**: Simple baseline CNN or ConvNeXt V2 with optional pretrained weights
+- **Focal Self-Attention**: Enhanced attention mechanism for improved feature learning (ConvNeXt only)
 - **K-Fold Cross-Validation**: Robust model evaluation with configurable folds
 - **Multiple Preprocessing Methods**: CLAHE, Otsu Thresholding, Deep Contrast, and composite approaches
 - **Interactive Dashboard**: Gradio-based interface for model inference and visualization
 - **Comprehensive Metrics**: Accuracy, Precision, Recall, F1-Score, ROC-AUC, and confusion matrices
+- **Descriptive Analysis**: Dataset statistics including class distribution, image dimensions, brightness, and color analysis
 - **Training Visualization**: Automatic generation of training graphs using Plotly
 
 ## Requirements
@@ -104,6 +105,7 @@ augmented = false
 preprocessing = "none"
 
 [model]
+architecture = "convnext"
 pretrained = false
 with_fsa = false
 
@@ -149,8 +151,13 @@ min_delta = 0.001
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `pretrained` | boolean | false | Use ImageNet pretrained weights |
-| `with_fsa` | boolean | false | Enable Focal Self-Attention mechanism |
+| `architecture` | string | "convnext" | Model architecture: "base" or "convnext" |
+| `pretrained` | boolean | false | Use ImageNet pretrained weights (ConvNeXt only) |
+| `with_fsa` | boolean | false | Enable Focal Self-Attention mechanism (ConvNeXt only) |
+
+**Architecture Options:**
+- `"base"`: Simple 5-layer CNN baseline (~6M parameters)
+- `"convnext"`: ConvNeXt V2 Atto with optional pretrained weights and FSA support
 
 ### `[optimizer]` Section
 
@@ -178,7 +185,7 @@ uv run .
 The CLI provides the following options:
 
 1. **Analysis Menu**
-   - Analyze descriptive statistics
+   - Analyze descriptive statistics (dataset overview, class distribution, image properties)
    - Visualize sample batch
    - Show training graphs from previous experiments
 
@@ -197,6 +204,8 @@ uv run .
 ```
 
 The dashboard allows you to:
+- Select model architecture (Base CNN or ConvNeXt V2)
+- Toggle Focal Self-Attention (for ConvNeXt only)
 - Upload trained model checkpoints (`.pt` files)
 - Upload images for classification
 - View predictions with confidence scores
@@ -257,8 +266,22 @@ Register in `PreprocessingMode` enum and update the preprocessing logic in `util
 
 ### Model Customization
 
-Modify the model architecture in `modules/model.py`:
-- Adjust FSA parameters (window size, number of heads)
+The project supports two architectures:
+
+**Base CNN** (`architecture = "base"`):
+- Simple 5-layer convolutional network
+- ~6M parameters
+- Good baseline for comparison
+- No pretrained weights or FSA support
+
+**ConvNeXt V2** (`architecture = "convnext"`):
+- ConvNeXt V2 Atto architecture
+- Optional ImageNet pretrained weights
+- Optional Focal Self-Attention mechanism
+- Adjust FSA parameters (window size, number of heads) in `modules/model.py`
+
+You can also modify the model architecture in `modules/model.py`:
+- Add new architectures
 - Change backbone architecture
 - Modify final classification head
 
@@ -270,6 +293,13 @@ Extend `modules/trainer.py` for custom training behavior:
 - Additional metrics
 
 ## Troubleshooting
+
+### Checking Logs
+If training fails or behaves unexpectedly, check `experiments/<experiment_name>/experiment.log` for detailed information about what went wrong.
+
+### Architecture-Specific Issues
+- **Base architecture**: Does not support `pretrained=true` or `with_fsa=true`
+- **ConvNeXt architecture**: Requires more GPU memory; reduce batch size if needed
 
 ### Out of Memory Errors
 - Reduce `batch_size` in config
