@@ -1,22 +1,12 @@
+import random
 from pathlib import Path
-from random import shuffle as random_shuffle
 
-from _pytest.python import Module
+import torch
 from PIL import Image
 from torch import Tensor
-from torch.accelerator import is_available as is_accelerator_available
 from torch.utils.data import DataLoader, Dataset
-from torchvision.transforms import (
-    ColorJitter,
-    Compose,
-    Normalize,
-    RandomAutocontrast,
-    RandomHorizontalFlip,
-    RandomRotation,
-    RandomVerticalFlip,
-    Resize,
-    ToTensor,
-)
+
+from modules import utilities
 
 EXTENSIONS = (".jpg", ".jpeg", ".png")
 
@@ -34,8 +24,12 @@ class ImageDataset(Dataset):
 
     def __getitem__(self, index: int) -> tuple[Tensor, int]:
         path, label = self._items[index]
-        return transform_image_to_tensor(
-            load_image(path), self._pretrained, self._augmented
+
+        with Image.open(path) as file:
+            image = file.convert("RGB")
+
+        return utilities.transform_image_to_tensor(
+            image, self._pretrained, self._augmented
         ), label
 
 
@@ -45,7 +39,7 @@ def get_data_root_path(path_name: str = "data") -> Path:
 
 def get_class_names(root: Path = get_data_root_path()) -> list[str]:
     if not root.exists():
-        raise FileNotFoundError(f"{root} does not exist")
+        raise FileNotFoundError(f"Path '{root}' does not exist.")
 
     return [path.name for path in root.iterdir() if path.is_dir()]
 
@@ -58,14 +52,14 @@ def get_data_loaders(
     batch_size: int = 32,
     num_workers: int = 2,
     max_items_per_class: int = 0,
-) -> list[tuple[DataLoader, DataLoader]]:
+) -> list[tuple[DataLoader[ImageDataset], DataLoader[ImageDataset]]]:
     class_names = get_class_names(root)
     label_map = {label: index for index, label in enumerate(class_names)}
 
     items = []
 
     for class_name in class_names:
-        class_directory = root.joinpath(class_name)
+        class_directory = root / class_name
 
         files = [
             path
@@ -88,12 +82,11 @@ def get_data_loaders(
 
     if dataset_size < k_folds:
         raise ValueError(
-            f"Dataset has {dataset_size} samples but {k_folds} k-folds. "
-            f"Need at least {k_folds} samples for {k_folds}-fold cross validation."
+            f"Dataset has {dataset_size} samples but {k_folds} k-folds. Need at least {k_folds} samples for {k_folds}-fold cross validation."
         )
 
     indices = list(range(dataset_size))
-    random_shuffle(indices)
+    random.shuffle(indices)
 
     fold_size = dataset_size // k_folds
     fold_loaders = []
@@ -121,7 +114,7 @@ def get_data_loaders(
             batch_size=batch_size,
             shuffle=True,
             num_workers=num_workers,
-            pin_memory=is_accelerator_available(),
+            pin_memory=torch.accelerator.is_available(),
         )
 
         validation_loader = DataLoader(
@@ -129,46 +122,9 @@ def get_data_loaders(
             batch_size=batch_size,
             shuffle=False,
             num_workers=num_workers,
-            pin_memory=is_accelerator_available(),
+            pin_memory=torch.accelerator.is_available(),
         )
 
         fold_loaders.append((train_loader, validation_loader))
 
     return fold_loaders
-
-
-def load_image(path: Path) -> Image.Image:
-    try:
-        return Image.open(path).convert("RGB")
-    except:
-        raise
-
-
-def transform_image_to_tensor(
-    image: Image.Image, pretrained: bool = False, augmented: bool = False
-) -> Tensor:
-    transformations: list[Module] = [
-        Resize((224, 224)),
-    ]
-
-    if augmented:
-        transformations.extend(
-            [
-                RandomHorizontalFlip(p=0.5),
-                RandomVerticalFlip(p=0.5),
-                RandomRotation(15),
-                ColorJitter(brightness=0.4, contrast=0.4, saturation=0.3),
-                RandomAutocontrast(p=0.5),
-            ]
-        )
-
-    transformations.append(ToTensor())
-
-    if pretrained:
-        transformations.append(
-            Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        )
-
-    transform = Compose(transformations)
-
-    return transform(image)
