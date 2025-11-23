@@ -1,9 +1,11 @@
 import dataclasses
 import json
+import logging
 import tomllib
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Iterator
+from typing import Callable, Iterator
 
 from torch.nn import BCEWithLogitsLoss, Module, Parameter
 from torch.optim import AdamW, Optimizer
@@ -109,7 +111,9 @@ def create_get_optimizer(
     return get_optimizer
 
 
-def run_experiment(experiment_directory: Path) -> dict[str, Any]:
+def run_experiment(experiment_directory: Path) -> None:
+    utilities.setup_logging(experiment_directory)
+
     if not experiment_directory.exists():
         raise FileNotFoundError(
             f"Experiment directory not found: {experiment_directory}"
@@ -126,6 +130,10 @@ def run_experiment(experiment_directory: Path) -> dict[str, Any]:
         )
 
     config = parse_config(config_path)
+
+    logging.info(
+        f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Starting Experiment: {config.name}\n"
+    )
 
     utilities.seed_all(config.seed)
 
@@ -144,16 +152,22 @@ def run_experiment(experiment_directory: Path) -> dict[str, Any]:
     get_optimizer = create_get_optimizer(config.optimizer)
     criterion = get_criterion()
 
-    train_results = trainer.train_model(
-        experiment_directory=experiment_directory,
-        get_model=get_model,
-        get_optimizer=get_optimizer,
-        criterion=criterion,
-        fold_loaders=fold_loaders,
-        num_epochs=config.training.num_epochs,
-        patience=config.training.patience,
-        min_delta=config.training.min_delta,
-    )
+    try:
+        train_results = trainer.train_model(
+            experiment_directory=experiment_directory,
+            get_model=get_model,
+            get_optimizer=get_optimizer,
+            criterion=criterion,
+            fold_loaders=fold_loaders,
+            num_epochs=config.training.num_epochs,
+            patience=config.training.patience,
+            min_delta=config.training.min_delta,
+        )
+    except KeyboardInterrupt:
+        logging.info(
+            f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Experiment Interrupted\n"
+        )
+        return None
 
     results = {
         "experiment_name": config.name,
@@ -176,4 +190,6 @@ def run_experiment(experiment_directory: Path) -> dict[str, Any]:
     with open(results_path, "w") as file:
         json.dump(results, file, indent=2)
 
-    return results
+    logging.info(
+        f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Experiment Finished\n"
+    )
