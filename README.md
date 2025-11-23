@@ -29,10 +29,10 @@ thesis/
 │   └── class_1/              # Images for class 1
 ├── experiments/              # Experiment outputs
 │   └── experiment_name/
-│       ├── config.toml       # Experiment configuration
-│       ├── results.json      # Training results
 │       ├── graphs/           # Training visualization graphs
-│       └── models/           # Saved model checkpoints
+│       ├── models/           # Saved model checkpoints
+│       ├── config.toml       # Experiment configuration
+│       └── results.json      # Training results
 ├── modules/
 │   ├── analysis.py           # Analysis and plotting
 │   ├── dashboard.py          # Gradio interface
