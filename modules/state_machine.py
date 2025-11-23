@@ -1,20 +1,21 @@
-from enum import Enum, auto
+import enum
+from enum import Enum
 
 
 class State(Enum):
-    MainMenu = auto()
-    Quit = auto()
+    MainMenu = enum.auto()
+    Quit = enum.auto()
 
-    AnalyzeMenu = auto()
-    AnalyzeDescriptive = auto()
-    AnalyzeSampleBatch = auto()
-    AnalyzeTrainingGraphs = auto()
+    AnalyzeMenu = enum.auto()
+    AnalyzeDescriptive = enum.auto()
+    AnalyzeSampleBatch = enum.auto()
+    AnalyzeTrainingGraphs = enum.auto()
 
-    ExperimentMenu = auto()
-    ExperimentAll = auto()
-    ExperimentSelected = auto()
+    ExperimentMenu = enum.auto()
+    ExperimentAll = enum.auto()
+    ExperimentSelected = enum.auto()
 
-    LaunchDashboard = auto()
+    LaunchDashboard = enum.auto()
 
 
 class StateMachine:
