@@ -1,11 +1,208 @@
 import json
+from collections import Counter
 from pathlib import Path
 
+import numpy
+from PIL import Image
 from plotly import express, subplots
 from plotly.graph_objects import Figure, Scatter
+from rich.console import Console
+from rich.table import Table
 from torch import Tensor
 
 from modules import data, utilities
+
+console = Console()
+
+
+def analyze_descriptive(root: Path = data.get_data_root_path()) -> None:
+    if not root.exists():
+        raise FileNotFoundError(f"Root '{root}' does not exist.")
+
+    class_names = data.get_class_names(root)
+
+    if len(class_names) == 0:
+        raise ValueError(f"No class directories found in '{root}'.")
+
+    console.print("[cyan]Analyzing Dataset[/cyan]\n")
+
+    class_images: dict[str, list[dict]] = {cls: [] for cls in class_names}
+
+    for class_name in class_names:
+        class_directory = root / class_name
+        image_files = [
+            path
+            for path in class_directory.iterdir()
+            if path.is_file() and path.suffix.lower() in data.EXTENSIONS
+        ]
+
+        console.print(f"Processing class '{class_name}': {len(image_files)} images")
+
+        for image_path in image_files:
+            try:
+                with Image.open(image_path) as image:
+                    width, height = image.size
+                    file_size = image_path.stat().st_size
+
+                    if image.mode != "RGB":
+                        image = image.convert("RGB")
+
+                    image_array = numpy.array(image)
+                    mean_rgb = tuple(
+                        float(image_array[:, :, i].mean()) for i in range(3)
+                    )
+
+                    brightness = float(image_array.mean())
+
+                class_images[class_name].append(
+                    {
+                        "width": width,
+                        "height": height,
+                        "file_size": file_size,
+                        "mean_rgb": mean_rgb,
+                        "brightness": brightness,
+                        "aspect_ratio": width / height if height > 0 else 0.0,
+                        "resolution": (width, height),
+                    }
+                )
+            except Exception as exception:
+                console.print(
+                    f"[yellow]Warning: Could not process {image_path.name}: {exception}[/yellow]"
+                )
+
+    total_images = sum(len(images) for images in class_images.values())
+
+    if total_images == 0:
+        raise ValueError("No valid images found in dataset.")
+
+    console.print("\n[bold cyan]Dataset Descriptive Statistics[/bold cyan]\n")
+
+    overall_table = Table(title="Overall Statistics", show_header=False)
+    overall_table.add_column("Metric", style="cyan")
+    overall_table.add_column("Value", style="green")
+    overall_table.add_row("Total Images", str(total_images))
+    overall_table.add_row("Number of Classes", str(len(class_names)))
+    console.print(overall_table)
+    console.print()
+
+    class_table = Table(title="Class Distribution")
+    class_table.add_column("Class", style="cyan")
+    class_table.add_column("Count", justify="right", style="green")
+    class_table.add_column("Percentage", justify="right", style="yellow")
+
+    for class_name, images in class_images.items():
+        count = len(images)
+        percentage = (count / total_images) * 100.0
+        class_table.add_row(class_name, str(count), f"{percentage:.1f}%")
+
+    console.print(class_table)
+    console.print()
+
+    all_images = [image for images in class_images.values() for image in images]
+    widths = [image["width"] for image in all_images]
+    heights = [image["height"] for image in all_images]
+    file_sizes = [image["file_size"] for image in all_images]
+    aspect_ratios = [image["aspect_ratio"] for image in all_images]
+    brightnesses = [image["brightness"] for image in all_images]
+    resolutions = [image["resolution"] for image in all_images]
+
+    dimensions_table = Table(title="Image Dimensions (pixels)")
+    dimensions_table.add_column("Statistic", style="cyan")
+    dimensions_table.add_column("Width", justify="right", style="green")
+    dimensions_table.add_column("Height", justify="right", style="green")
+
+    for stat_name, stat_function in [
+        ("Min", numpy.min),
+        ("Max", numpy.max),
+        ("Mean", numpy.mean),
+        ("Median", numpy.median),
+        ("Std", numpy.std),
+    ]:
+        dimensions_table.add_row(
+            stat_name,
+            f"{stat_function(widths):.1f}",
+            f"{stat_function(heights):.1f}",
+        )
+
+    console.print(dimensions_table)
+    console.print()
+
+    resolution_counts = Counter(resolutions)
+    most_common = resolution_counts.most_common(1)[0]
+    resolution, count = most_common
+    percentage = (count / total_images) * 100
+    console.print(
+        f"[cyan]Most Common Resolution:[/cyan] [green]{resolution[0]}x{resolution[1]}[/green] "
+        f"[yellow]({count} images, {percentage:.1f}%)[/yellow]"
+    )
+    console.print()
+
+    aspect_table = Table(title="Aspect Ratio Statistics")
+    aspect_table.add_column("Statistic", style="cyan")
+    aspect_table.add_column("Value", justify="right", style="green")
+
+    for stat_name, stat_function in [
+        ("Min", numpy.min),
+        ("Max", numpy.max),
+        ("Mean", numpy.mean),
+        ("Median", numpy.median),
+        ("Std", numpy.std),
+    ]:
+        aspect_table.add_row(stat_name, f"{stat_function(aspect_ratios):.3f}")
+
+    console.print(aspect_table)
+    console.print()
+
+    brightness_table = Table(title="Brightness Statistics (0-255)")
+    brightness_table.add_column("Statistic", style="cyan")
+    brightness_table.add_column("Value", justify="right", style="green")
+
+    for stat_name, stat_function in [
+        ("Min", numpy.min),
+        ("Max", numpy.max),
+        ("Mean", numpy.mean),
+        ("Median", numpy.median),
+        ("Std", numpy.std),
+    ]:
+        brightness_table.add_row(stat_name, f"{stat_function(brightnesses):.1f}")
+
+    console.print(brightness_table)
+    console.print()
+
+    file_size_table = Table(title="File Size Statistics")
+    file_size_table.add_column("Statistic", style="cyan")
+    file_size_table.add_column("Size", justify="right", style="green")
+
+    for stat_name, stat_function in [
+        ("Min", numpy.min),
+        ("Max", numpy.max),
+        ("Mean", numpy.mean),
+        ("Median", numpy.median),
+        ("Std", numpy.std),
+    ]:
+        file_size_table.add_row(
+            stat_name, utilities.format_file_size(stat_function(file_sizes))
+        )
+
+    console.print(file_size_table)
+    console.print()
+
+    color_table = Table(title="Mean RGB Values by Class")
+    color_table.add_column("Class", style="cyan")
+    color_table.add_column("Red", justify="right", style="red")
+    color_table.add_column("Green", justify="right", style="green")
+    color_table.add_column("Blue", justify="right", style="blue")
+
+    for class_name, images in class_images.items():
+        if len(images) == 0:
+            continue
+        rgb_values = [image["mean_rgb"] for image in images]
+        mean_rgb = tuple(numpy.mean([rgb[i] for rgb in rgb_values]) for i in range(3))
+        r, g, b = mean_rgb
+        color_table.add_row(class_name, f"{r:.1f}", f"{g:.1f}", f"{b:.1f}")
+
+    console.print(color_table)
+    console.print()
 
 
 def analyze_sample_batch(pretrained: bool = False) -> None:
