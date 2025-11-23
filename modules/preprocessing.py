@@ -1,4 +1,3 @@
-import enum
 from enum import Enum
 from typing import Sequence
 
@@ -10,11 +9,11 @@ from torch.nn import Module
 
 
 class PreprocessingMode(Enum):
-    NONE = enum.auto()
-    CLAHE = enum.auto()
-    OTSU_THRESHOLD = enum.auto()
-    DEEP_CONTRAST = enum.auto()
-    ALL = enum.auto()
+    NONE = "none"
+    CLAHE = "clahe"
+    OTSU_THRESHOLD = "otsu_threshold"
+    DEEP_CONTRAST = "deep_contrast"
+    ALL = "all"
 
 
 class CLAHE(Module):
