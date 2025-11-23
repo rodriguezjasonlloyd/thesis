@@ -1,7 +1,7 @@
 import warnings
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Iterator
+from typing import Callable, Iterator, TypedDict
 
 import torch
 from rich.console import Console
@@ -20,6 +20,37 @@ from modules import utilities
 from modules.data import ImageDataset
 
 console = Console()
+
+
+class EpochMetrics(TypedDict):
+    epoch: int
+    train_loss: float
+    train_accuracy: float
+    train_precision: float
+    train_recall: float
+    train_f1_score: float
+    train_roc_auc: float
+    validation_loss: float
+    validation_accuracy: float
+    validation_precision: float
+    validation_recall: float
+    validation_f1_score: float
+    validation_roc_auc: float
+
+
+class FoldResult(TypedDict):
+    fold: int
+    best_validation_loss: float
+    best_validation_accuracy: float
+    confusion_matrix: list[list[int]]
+    epoch_history: list[EpochMetrics]
+
+
+class TrainingResults(TypedDict):
+    fold_results: list[FoldResult]
+    average_validation_loss: float
+    average_validation_accuracy: float
+    k_folds: int
 
 
 def compute_accuracy(output: Tensor, target: Tensor) -> float:
@@ -76,12 +107,12 @@ def train_model(
     num_epochs: int = 30,
     patience: int = 5,
     min_delta: float = 1e-3,
-) -> dict[str, Any]:
+) -> TrainingResults:
     models_directory = experiment_directory / "models"
     models_directory.mkdir(exist_ok=True)
 
     experiment_start_time = datetime.now()
-    device = torch.get_device()
+    device = utilities.get_device()
     criterion = criterion.to(device)
 
     k_folds = len(fold_loaders)
