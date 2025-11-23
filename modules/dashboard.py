@@ -17,9 +17,8 @@ from gradio import (
 from PIL import Image as PillowImage
 from pytorch_grad_cam.grad_cam_plusplus import GradCAMPlusPlus
 from torch import Tensor
-from torch.nn import Module
 
-from modules import utilities
+from modules import model, utilities
 from modules.data import get_class_names, get_data_root_path
 from modules.model import load_model
 from modules.trainer import truncate
@@ -72,28 +71,14 @@ def predict_image(
         return ("Prediction error", 0.0)
 
 
-def get_all_convolutional_layers(model: Module) -> list[tuple[str, str]]:
-    convolutional_layers = []
-
-    for name, module in model.named_modules():
-        name: str
-        module: Module
-
-        if isinstance(module, torch.nn.Conv2d):
-            display_name = name.replace(".", " > ")
-            convolutional_layers.append((display_name, name))
-
-    return convolutional_layers
-
-
 def update_layer_choices(uploaded_model: File, with_fsa: bool):
     if uploaded_model is None:
         return Dropdown(choices=[], value=None)
 
     try:
         model_path = Path(uploaded_model.name)
-        model = load_model(model_path, with_fsa=with_fsa)
-        layers = get_all_convolutional_layers(model)
+        model_ = load_model(model_path, with_fsa=with_fsa)
+        layers = model.get_all_convolutional_layers(model_)
         default_value = layers[-1][1] if layers else None
 
         return Dropdown(choices=layers, value=default_value)

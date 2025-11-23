@@ -230,6 +230,20 @@ def channels_for_stage(model: Module, stage_idx: int) -> int:
     )
 
 
+def get_all_convolutional_layers(model: Module) -> list[tuple[str, str]]:
+    convolutional_layers = []
+
+    for name, module in model.named_modules():
+        name: str
+        module: Module
+
+        if isinstance(module, Conv2d):
+            display_name = name.replace(".", " > ")
+            convolutional_layers.append((display_name, name))
+
+    return convolutional_layers
+
+
 def load_model(model_path: Path, with_fsa: bool = False) -> Module:
     device = utilities.get_device()
     model = build_model(with_fsa=with_fsa)
