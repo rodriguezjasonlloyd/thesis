@@ -163,37 +163,7 @@ def experiment_menu(state_machine: StateMachine):
 
 
 def run():
-    state_machine = StateMachine(
-        State.MainMenu,
-        {
-            State.MainMenu: [
-                State.Quit,
-                State.AnalyzeMenu,
-                State.ExperimentMenu,
-                State.LaunchDashboard,
-            ],
-            State.AnalyzeMenu: [
-                State.Quit,
-                State.MainMenu,
-                State.AnalyzeDescriptive,
-                State.AnalyzeSampleBatch,
-                State.AnalyzeTrainingGraphs,
-            ],
-            State.AnalyzeDescriptive: [State.AnalyzeMenu],
-            State.AnalyzeSampleBatch: [State.AnalyzeMenu],
-            State.AnalyzeTrainingGraphs: [State.AnalyzeMenu],
-            State.ExperimentMenu: [
-                State.Quit,
-                State.MainMenu,
-                State.ExperimentAll,
-                State.ExperimentSelected,
-            ],
-            State.ExperimentAll: [State.ExperimentMenu],
-            State.ExperimentSelected: [State.ExperimentMenu],
-            State.LaunchDashboard: [State.MainMenu],
-            State.Quit: [],
-        },
-    )
+    state_machine = STATE_MACHINE
 
     while state_machine.get_state() != State.Quit:
         current = state_machine.get_state()
