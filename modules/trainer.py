@@ -1,15 +1,13 @@
+import warnings
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Iterator
-from warnings import filterwarnings
 
 import torch
 from rich.console import Console
 from rich.table import Table
-from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_score
-from torch import Tensor, no_grad
-from torch import cat as torch_cat
-from torch import save as torch_save
+from sklearn import metrics
+from torch import Tensor
 from torch.nn import Module, Parameter
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import CosineAnnealingLR
@@ -25,7 +23,7 @@ console = Console()
 
 
 def compute_accuracy(output: Tensor, target: Tensor) -> float:
-    with no_grad():
+    with torch.no_grad():
         predicted = (torch.sigmoid(output.squeeze()) > 0.5).long()
         target_squeezed = target.squeeze().long()
         correct = (predicted == target_squeezed).sum().item()
@@ -37,9 +35,9 @@ def compute_accuracy(output: Tensor, target: Tensor) -> float:
 def compute_metrics(
     all_outputs: list[Tensor], all_targets: list[Tensor]
 ) -> dict[str, float]:
-    with no_grad():
-        outputs = torch_cat(all_outputs, dim=0)
-        targets = torch_cat(all_targets, dim=0)
+    with torch.no_grad():
+        outputs = torch.cat(all_outputs, dim=0)
+        targets = torch.cat(all_targets, dim=0)
 
         probabilities = torch.sigmoid(outputs.squeeze())
         predicted = (probabilities > 0.5).long()
@@ -48,16 +46,18 @@ def compute_metrics(
         targets_numpy = targets.squeeze().cpu().numpy()
         probabilities_numpy = probabilities.cpu().numpy()
 
-        precision = precision_score(targets_numpy, predicted_numpy, zero_division=0)
-        recall = recall_score(targets_numpy, predicted_numpy, zero_division=0)
-        f1 = f1_score(targets_numpy, predicted_numpy, zero_division=0)
+        precision = metrics.precision_score(
+            targets_numpy, predicted_numpy, zero_division=0
+        )
+        recall = metrics.recall_score(targets_numpy, predicted_numpy, zero_division=0)
+        f1 = metrics.f1_score(targets_numpy, predicted_numpy, zero_division=0)
 
         unique_classes = len(set(targets_numpy.tolist()))
 
         if unique_classes < 2:
             roc_auc = 0.0
         else:
-            roc_auc = roc_auc_score(targets_numpy, probabilities_numpy)
+            roc_auc = metrics.roc_auc_score(targets_numpy, probabilities_numpy)
 
         return {
             "precision": precision * 100.0,
@@ -87,7 +87,7 @@ def train_model(
     k_folds = len(fold_loaders)
     fold_results = []
 
-    filterwarnings("ignore", category=TqdmExperimentalWarning)
+    warnings.filterwarnings("ignore", category=TqdmExperimentalWarning)
 
     for fold_index, (train_loader, validation_loader) in enumerate(fold_loaders):
         fold_start_time = datetime.now()
@@ -145,7 +145,7 @@ def train_model(
             validation_outputs = []
             validation_targets = []
 
-            with no_grad():
+            with torch.no_grad():
                 for input, label in tqdm(
                     validation_loader,
                     desc=f"Fold {fold_index + 1} - Validation Epoch {epoch + 1}",
@@ -167,11 +167,15 @@ def train_model(
 
             validation_metrics = compute_metrics(validation_outputs, validation_targets)
 
-            with no_grad():
-                all_val_outputs = torch_cat(validation_outputs, dim=0)
-                all_val_targets = torch_cat(validation_targets, dim=0)
-                val_preds = (torch.sigmoid(all_val_outputs.squeeze()) > 0.5).long()
-                confusion_matrix.update(val_preds, all_val_targets.squeeze().long())
+            with torch.no_grad():
+                all_validation_outputs = torch.cat(validation_outputs, dim=0)
+                all_validation_targets = torch.cat(validation_targets, dim=0)
+                validation_preds = (
+                    torch.sigmoid(all_validation_outputs.squeeze()) > 0.5
+                ).long()
+                confusion_matrix.update(
+                    validation_preds, all_validation_targets.squeeze().long()
+                )
 
             if len(train_loader) == 0:
                 raise ValueError(f"Fold {fold_index + 1}: Training loader is empty")
@@ -209,7 +213,7 @@ def train_model(
                 best_validation_loss = average_validation_loss
                 best_validation_accuracy = average_validation_accuracy
                 epochs_without_improvement = 0
-                torch_save(
+                torch.save(
                     model.state_dict(),
                     models_directory / f"best_model_fold_{fold_index + 1}.pt",
                 )

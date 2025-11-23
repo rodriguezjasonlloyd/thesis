@@ -1,14 +1,21 @@
-from math import sqrt
+import math
 from pathlib import Path
 
-from timm import create_model
-from torch import Tensor, cat, matmul, softmax
-from torch import device as torch_device
-from torch import load as torch_load
-from torch.nn import GELU, AvgPool2d, Conv2d, LayerNorm, Linear, Module, Sequential
-from torch.nn.functional import pad, unfold
+import timm
+import torch
+from torch import Tensor
+from torch.nn import (
+    GELU,
+    AvgPool2d,
+    Conv2d,
+    LayerNorm,
+    Linear,
+    Module,
+    Sequential,
+    functional,
+)
 
-from modules.trainer import get_device
+from modules import utilities
 
 
 class FocalSelfAttention(Module):
@@ -41,14 +48,16 @@ class FocalSelfAttention(Module):
         width_padding = (window_size - width % window_size) % window_size
 
         if height_padding > 0 or width_padding > 0:
-            features = pad(features, (0, width_padding, 0, height_padding))
+            features = functional.pad(features, (0, width_padding, 0, height_padding))
             height, width = features.shape[2], features.shape[3]
 
         windows_per_col = height // window_size
         windows_per_row = width // window_size
         num_windows_total = windows_per_col * windows_per_row
 
-        query_unfold = unfold(features, kernel_size=window_size, stride=window_size)
+        query_unfold = functional.unfold(
+            features, kernel_size=window_size, stride=window_size
+        )
         query_tokens_per_window = window_size * window_size
         query_windows_tokens = query_unfold.transpose(1, 2).reshape(
             batch_size * num_windows_total, query_tokens_per_window, channels
@@ -57,8 +66,10 @@ class FocalSelfAttention(Module):
 
         local_kernel = 2 * window_size
         padding = window_size // 2
-        features_padded = pad(features, pad=(padding, padding, padding, padding))
-        local_unfold = unfold(
+        features_padded = functional.pad(
+            features, pad=(padding, padding, padding, padding)
+        )
+        local_unfold = functional.unfold(
             features_padded, kernel_size=local_kernel, stride=window_size
         )
         local_tokens_per_window = local_kernel * local_kernel
@@ -84,7 +95,7 @@ class FocalSelfAttention(Module):
             .reshape(batch_size * num_windows_total, global_tokens_len, channels)
         )
 
-        concatenated_kv_tokens = cat(
+        concatenated_kv_tokens = torch.cat(
             [local_kv_tokens, mid_kv_tokens_batched, global_kv_tokens_batched], dim=1
         )
         kv_tokens_per_window = concatenated_kv_tokens.shape[1]
@@ -107,9 +118,11 @@ class FocalSelfAttention(Module):
             batch_windows, kv_tokens_per_window, self.num_heads, self.head_dim
         ).transpose(1, 2)
 
-        attention_scores = matmul(queries, keys.transpose(-2, -1)) / sqrt(self.head_dim)
-        attention_weights = softmax(attention_scores, dim=-1)
-        attention_windows = matmul(attention_weights, values)
+        attention_scores = torch.matmul(queries, keys.transpose(-2, -1)) / math.sqrt(
+            self.head_dim
+        )
+        attention_weights = torch.softmax(attention_scores, dim=-1)
+        attention_windows = torch.matmul(attention_weights, values)
 
         attention_windows = (
             attention_windows.transpose(1, 2)
@@ -218,12 +231,12 @@ def channels_for_stage(model: Module, stage_idx: int) -> int:
 
 
 def load_model(model_path: Path, with_fsa: bool = False) -> Module:
-    device = torch_device(get_device())
+    device = utilities.get_device()
     model = build_model(with_fsa=with_fsa)
     model = model.to(device)
 
     if model_path and model_path.exists():
-        model.load_state_dict(torch_load(model_path, map_location=get_device()))
+        model.load_state_dict(torch.load(model_path, map_location=device))
 
     model.eval()
 
@@ -231,7 +244,7 @@ def load_model(model_path: Path, with_fsa: bool = False) -> Module:
 
 
 def build_model(pretrained: bool = False, with_fsa: bool = False) -> Module:
-    model = create_model(
+    model = timm.create_model(
         f"convnextv2_atto.fcmae{'_ft_in1k' if pretrained else ''}",
         pretrained=pretrained,
         num_classes=1,
