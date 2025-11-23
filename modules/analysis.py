@@ -1,69 +1,59 @@
 import json
 from pathlib import Path
 
-from numpy import clip, ndarray, uint8
-from plotly.graph_objects import Figure, Image, Scatter
-from plotly.subplots import make_subplots
+from plotly import express, subplots
+from plotly.graph_objects import Figure, Scatter
 from torch import Tensor
 
-from modules.data import get_data_loaders
-
-
-def tensor_to_numpy(tensor: Tensor) -> ndarray:
-    numpy_image = tensor.permute(1, 2, 0).numpy()
-    numpy_image = clip(numpy_image, 0, 1)
-    numpy_image = (numpy_image * 255).astype(uint8)
-    return numpy_image
-
-
-def visualize_raw_tensors(tensors: list[Tensor], rows: int = 3, cols: int = 3) -> None:
-    figure = make_subplots(
-        rows=rows,
-        cols=cols,
-        subplot_titles=[
-            f"Image {i + 1}" for i in range(min(len(tensors), rows * cols))
-        ],
-    )
-
-    for index, tensor in enumerate(tensors[: rows * cols]):
-        numpy_image = tensor_to_numpy(tensor)
-        row = index // cols + 1
-        col = index % cols + 1
-
-        figure.add_trace(Image(z=numpy_image), row=row, col=col)
-
-    figure.update_xaxes(visible=False)
-    figure.update_yaxes(visible=False)
-    figure.update_layout(
-        title={"text": "Sample PCOS Batch", "x": 0.5, "xanchor": "center"},
-        height=rows * 300,
-        width=cols * 300,
-    )
-    figure.show()
+from modules import data, utilities
 
 
 def analyze_sample_batch(pretrained: bool = False) -> None:
-    try:
-        data_loaders = get_data_loaders(pretrained=pretrained)
+    rows = 3
+    cols = 3
 
+    try:
+        data_loaders = data.get_data_loaders(pretrained=pretrained)
         train_loader, _ = data_loaders[0]
+
         batch_images, batch_labels = next(iter(train_loader))
+        batch_images: Tensor
+        batch_labels: Tensor
 
         tensors = [batch_images[index] for index in range(len(batch_images))]
 
-        visualize_raw_tensors(tensors, rows=3, cols=3)
+        figure = subplots.make_subplots(
+            rows=rows,
+            cols=cols,
+            subplot_titles=[
+                f"Image {i + 1}" for i in range(min(len(tensors), rows * cols))
+            ],
+        )
 
-        print("Visualization complete!")
+        for index, tensor in enumerate(tensors[: rows * cols]):
+            numpy_image = utilities.tensor_to_numpy(tensor)
+            row = index // cols + 1
+            col = index % cols + 1
 
-    except Exception as error:
-        print(f"Error during visualization: {error}")
+            figure.add_trace(express.imshow(numpy_image).data[0], row=row, col=col)
+
+        figure.update_xaxes(visible=False)
+        figure.update_yaxes(visible=False)
+        figure.update_layout(
+            title={"text": "Sample PCOS Batch", "x": 0.5, "xanchor": "center"},
+            height=rows * 300,
+            width=cols * 300,
+        )
+        figure.show()
+    except Exception as exception:
+        print(f"Error during visualization: {exception}")
 
 
-def show_training_graphs(experiment_directory: Path) -> None:
+def show_training_graphs(experiment_directory: Path, save_graphs: bool = False) -> None:
     results_path = experiment_directory / "results.json"
 
-    with open(results_path, "r") as f:
-        results = json.load(f)
+    with open(results_path, "r") as file:
+        results = json.load(file)
 
     fold_data = []
 
@@ -132,52 +122,53 @@ def show_training_graphs(experiment_directory: Path) -> None:
         ("roc_auc", "ROC-AUC (%)", "train_roc_auc", "validation_roc_auc"),
     ]
 
-    for fold in fold_data:
-        fold_number = fold["fold"]
+    if save_graphs:
+        for fold in fold_data:
+            fold_number = fold["fold"]
 
-        for metric_info in metrics:
-            metric_name, y_label, train_key, validation_key = metric_info
+            for metric_info in metrics:
+                metric_name, y_label, train_key, validation_key = metric_info
 
-            figure = Figure()
+                figure = Figure()
 
-            figure.add_trace(
-                Scatter(
-                    x=fold["epochs"],
-                    y=fold[train_key],
-                    name=f"Train {metric_name.capitalize()}",
-                    mode="lines+markers",
+                figure.add_trace(
+                    Scatter(
+                        x=fold["epochs"],
+                        y=fold[train_key],
+                        name=f"Train {metric_name.capitalize()}",
+                        mode="lines+markers",
+                    )
                 )
-            )
 
-            figure.add_trace(
-                Scatter(
-                    x=fold["epochs"],
-                    y=fold[validation_key],
-                    name=f"Validation {metric_name.capitalize()}",
-                    mode="lines+markers",
-                    line=dict(dash="dash"),
+                figure.add_trace(
+                    Scatter(
+                        x=fold["epochs"],
+                        y=fold[validation_key],
+                        name=f"Validation {metric_name.capitalize()}",
+                        mode="lines+markers",
+                        line=dict(dash="dash"),
+                    )
                 )
-            )
 
-            figure.update_layout(
-                title={
-                    "text": f"Fold {fold_number} - {metric_name.replace('_', ' ').title()}",
-                    "x": 0.5,
-                    "xanchor": "center",
-                },
-                xaxis_title="Epoch",
-                yaxis_title=y_label,
-                height=400,
-                width=600,
-                showlegend=True,
-            )
+                figure.update_layout(
+                    title={
+                        "text": f"Fold {fold_number} - {metric_name.replace('_', ' ').title()}",
+                        "x": 0.5,
+                        "xanchor": "center",
+                    },
+                    xaxis_title="Epoch",
+                    yaxis_title=y_label,
+                    height=400,
+                    width=600,
+                    showlegend=True,
+                )
 
-            output_path = graphs_directory / f"fold_{fold_number}_{metric_name}.png"
-            figure.write_image(str(output_path))
+                output_path = graphs_directory / f"fold_{fold_number}_{metric_name}.png"
+                figure.write_image(str(output_path))
 
     num_folds = len(fold_data)
 
-    figure = make_subplots(
+    figure = subplots.make_subplots(
         rows=num_folds,
         cols=6,
         subplot_titles=[

@@ -1,3 +1,5 @@
+from typing import Literal
+
 import numpy
 from albumentations import CoarseDropout, HorizontalFlip
 from albumentations import Compose as AlbumentationsCompose
@@ -7,9 +9,20 @@ from torch.nn import Module
 from torchvision.transforms import Compose as TorchCompose
 from torchvision.transforms import Normalize, Resize, ToTensor
 
+from modules.preprocessing import (
+    CLAHE,
+    AggressiveComposite,
+    DeepContrast,
+    OtsuThreshold,
+    PreprocessingMode,
+)
 
-def transform_image_to_tensor(
-    image: Image.Image, pretrained: bool = False, augmented: bool = False
+
+def image_to_tensor(
+    image: Image.Image,
+    pretrained: bool = False,
+    augmented: bool = False,
+    preprocessing: PreprocessingMode = PreprocessingMode.NONE,
 ) -> Tensor:
     if augmented:
         transforms = AlbumentationsCompose(
@@ -21,11 +34,23 @@ def transform_image_to_tensor(
 
         image = Image.fromarray(transforms(image=numpy.array(image))["image"])
 
-    transformations: list[Module] = [
-        AggressiveComposite(),
-        Resize((224, 224)),
-        ToTensor(),
-    ]
+    transformations: list[Module] = []
+
+    if preprocessing == PreprocessingMode.CLAHE:
+        transformations.append(CLAHE())
+    elif preprocessing == PreprocessingMode.OTSU_THRESHOLD:
+        transformations.append(OtsuThreshold())
+    elif preprocessing == PreprocessingMode.DEEP_CONTRAST:
+        transformations.append(DeepContrast())
+    elif preprocessing == PreprocessingMode.ALL:
+        transformations.append(AggressiveComposite())
+
+    transformations.extend(
+        [
+            Resize((224, 224)),
+            ToTensor(),
+        ]
+    )
 
     if pretrained:
         transformations.append(
@@ -35,3 +60,11 @@ def transform_image_to_tensor(
     transform = TorchCompose(transformations)
 
     return transform(image)
+
+
+def tensor_to_numpy(
+    tensor: Tensor,
+) -> numpy.ndarray[
+    tuple[Literal[224], Literal[224], Literal[3]], numpy.dtype[numpy.float32]
+]:
+    return tensor.permute(1, 2, 0).numpy()
