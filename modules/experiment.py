@@ -7,9 +7,10 @@ from typing import Any, Callable, Iterator
 from torch.nn import BCEWithLogitsLoss, Module, Parameter
 from torch.optim import AdamW, Optimizer
 
+from modules import utilities
 from modules.data import get_data_loaders, get_data_root_path
 from modules.model import build_model
-from modules.trainer import seed_all, train_model
+from modules.trainer import train_model
 
 
 @dataclass
@@ -143,7 +144,7 @@ def run_experiment(experiment_directory: Path) -> dict[str, Any]:
 
     print(f"Running experiment: {experiment_directory} - {config.name}")
 
-    seed_all(config.seed)
+    utilities.seed_all(config.seed)
 
     fold_loaders = get_data_loaders(
         root=get_data_root_path(config.data.root),

@@ -12,7 +12,6 @@ from torch.nn import (
     Linear,
     Module,
     Sequential,
-    functional,
 )
 
 from modules import utilities
@@ -48,14 +47,16 @@ class FocalSelfAttention(Module):
         width_padding = (window_size - width % window_size) % window_size
 
         if height_padding > 0 or width_padding > 0:
-            features = functional.pad(features, (0, width_padding, 0, height_padding))
+            features = torch.nn.functional.pad(
+                features, (0, width_padding, 0, height_padding)
+            )
             height, width = features.shape[2], features.shape[3]
 
         windows_per_col = height // window_size
         windows_per_row = width // window_size
         num_windows_total = windows_per_col * windows_per_row
 
-        query_unfold = functional.unfold(
+        query_unfold = torch.nn.functional.unfold(
             features, kernel_size=window_size, stride=window_size
         )
         query_tokens_per_window = window_size * window_size
@@ -66,10 +67,10 @@ class FocalSelfAttention(Module):
 
         local_kernel = 2 * window_size
         padding = window_size // 2
-        features_padded = functional.pad(
+        features_padded = torch.nn.functional.pad(
             features, pad=(padding, padding, padding, padding)
         )
-        local_unfold = functional.unfold(
+        local_unfold = torch.nn.functional.unfold(
             features_padded, kernel_size=local_kernel, stride=window_size
         )
         local_tokens_per_window = local_kernel * local_kernel
