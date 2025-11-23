@@ -40,7 +40,7 @@ def predict_image(
         return ("Error reading uploaded file", 0.0)
 
     try:
-        model = load_model(model_path, with_fsa=with_fsa)
+        loaded_model = load_model(model_path, with_fsa=with_fsa)
     except Exception as exception:
         print(f"Model load error: {exception}")
         return ("Model load error", 0.0)
@@ -53,8 +53,8 @@ def predict_image(
 
     try:
         with torch.no_grad():
-            device = next(model.parameters()).device
-            output: Tensor = model(tensor.unsqueeze(0).to(device))
+            device = next(loaded_model.parameters()).device
+            output: Tensor = loaded_model(tensor.unsqueeze(0).to(device))
             probability = torch.sigmoid(output).cpu().item()
             prediction_index = int(probability > 0.5)
 
@@ -77,8 +77,8 @@ def update_layer_choices(uploaded_model: File, with_fsa: bool):
 
     try:
         model_path = Path(uploaded_model.name)
-        model_ = load_model(model_path, with_fsa=with_fsa)
-        layers = model.get_all_convolutional_layers(model_)
+        loaded_model = load_model(model_path, with_fsa=with_fsa)
+        layers = model.get_all_convolutional_layers(loaded_model)
         default_value = layers[-1][1] if layers else None
 
         return Dropdown(choices=layers, value=default_value)
