@@ -1,6 +1,8 @@
 import dataclasses
+import logging
 import random
 from enum import Enum
+from pathlib import Path
 from typing import Literal, TypeVar
 
 import numpy
@@ -119,3 +121,11 @@ def dataclass_to_dict(object: T) -> dict[str, int | float | str | bool]:
             result[field.name] = value
 
     return result
+
+
+def setup_logging(log_directory: Path, level=logging.INFO):
+    logging.basicConfig(
+        level=level,
+        format="%(message)s",
+        handlers=[logging.FileHandler(log_directory / "experiment.log")],
+    )
