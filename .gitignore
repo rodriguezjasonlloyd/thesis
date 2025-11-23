@@ -10,6 +10,3 @@ wheels/
 .venv
 
 data/
-graphs/
-models/
-results.json
