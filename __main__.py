@@ -1,27 +1,21 @@
-from os import listdir as os_listdir
-from os import name as os_name
-from os import path as os_path
-from os import system as os_system
+import os
 from pathlib import Path
-from traceback import print_exc
 
-from questionary import prompt
+import questionary
 
-from modules.analysis import analyze_sample_batch, show_training_graphs
-from modules.dashboard import make_dashboard
-from modules.experiment import run_experiment
+from modules import analysis, dashboard, experiment
 from modules.state_machine import State, StateMachine
 
 
 def clear_terminal() -> None:
-    os_system("cls" if os_name == "nt" else "clear")
+    os.system("cls" if os.name == "nt" else "clear")
 
 
 def get_directories(path: str) -> list[str]:
     return [
         directory
-        for directory in os_listdir(path)
-        if os_path.isdir(os_path.join(path, directory))
+        for directory in os.listdir(path)
+        if os.path.isdir(os.path.join(path, directory))
     ]
 
 
@@ -41,7 +35,7 @@ def select_directories(path: str = "experiments") -> list[str]:
         }
     ]
 
-    answer = prompt(questions)
+    answer = questionary.prompt(questions)
 
     return answer.get("selected_directories") if answer else []
 
@@ -72,7 +66,7 @@ def select_experiment_with_results() -> str:
         }
     ]
 
-    answer = prompt(questions)
+    answer = questionary.prompt(questions)
 
     return answer.get("selected_experiment") if answer else None
 
@@ -89,7 +83,7 @@ def main_menu(state_machine: StateMachine):
         }
     ]
 
-    answer = prompt(main_questions)
+    answer = questionary.prompt(main_questions)
 
     if not answer:
         return
@@ -122,7 +116,7 @@ def analyze_menu(state_machine: StateMachine):
         }
     ]
 
-    answer = prompt(analyze_questions)
+    answer = questionary.prompt(analyze_questions)
 
     if not answer:
         return
@@ -151,7 +145,7 @@ def experiment_menu(state_machine: StateMachine):
         }
     ]
 
-    answer = prompt(experiment_questions)
+    answer = questionary.prompt(experiment_questions)
 
     if not answer:
         return
@@ -214,7 +208,7 @@ def run():
             # TODO: implement
             state_machine.transition(State.AnalyzeMenu)
         elif current == State.AnalyzeSampleBatch:
-            analyze_sample_batch(pretrained=False)
+            analysis.analyze_sample_batch(pretrained=True)
             state_machine.transition(State.AnalyzeMenu)
         elif current == State.AnalyzeTrainingGraphs:
             selected_experiment = select_experiment_with_results()
@@ -223,10 +217,13 @@ def run():
                 experiment_directory = Path("experiments") / selected_experiment
 
                 try:
-                    show_training_graphs(experiment_directory)
-                except Exception:
-                    print_exc()
-                    print(f"Error showing graphs for {selected_experiment}")
+                    analysis.show_training_graphs(
+                        experiment_directory, save_graphs=True
+                    )
+                except Exception as exception:
+                    print(
+                        f"Error showing graphs for {selected_experiment}: {exception}"
+                    )
 
             state_machine.transition(State.AnalyzeMenu)
         elif current == State.ExperimentAll:
@@ -248,11 +245,12 @@ def run():
 
             for experiment_directory in experiment_directories:
                 try:
-                    results = run_experiment(experiment_directory)
+                    results = experiment.run_experiment(experiment_directory)
                     print(f"Experiment completed: {results['experiment_name']}")
-                except Exception:
-                    print_exc()
-                    print(f"Error running experiment in {experiment_directory}")
+                except Exception as exception:
+                    print(
+                        f"Error running experiment in {experiment_directory}: {exception}"
+                    )
 
             state_machine.transition(State.ExperimentMenu)
         elif current == State.ExperimentSelected:
@@ -272,15 +270,16 @@ def run():
                     continue
 
                 try:
-                    results = run_experiment(experiment_directory)
+                    results = experiment.run_experiment(experiment_directory)
                     print(f"Experiment completed: {results['experiment_name']}")
-                except Exception:
-                    print_exc()
-                    print(f"Error running experiment in {experiment_directory}")
+                except Exception as exception:
+                    print(
+                        f"Error running experiment in {experiment_directory}: {exception}"
+                    )
 
             state_machine.transition(State.ExperimentMenu)
         elif current == State.LaunchDashboard:
-            make_dashboard().launch()
+            dashboard.make_dashboard().launch()
             state_machine.transition(State.MainMenu)
 
     print("Goodbye!")
