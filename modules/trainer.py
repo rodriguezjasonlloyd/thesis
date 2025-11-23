@@ -1,3 +1,4 @@
+import logging
 import warnings
 from datetime import datetime
 from pathlib import Path
@@ -19,7 +20,7 @@ from tqdm.std import TqdmExperimentalWarning
 from modules import utilities
 from modules.data import ImageDataset
 
-console = Console()
+console = Console(record=True)
 
 
 class EpochMetrics(TypedDict):
@@ -124,7 +125,7 @@ def train_model(
         fold_start_time = datetime.now()
 
         console.print(
-            f"\n[bold cyan]Training Fold {fold_index + 1}/{k_folds}[/bold cyan]"
+            f"[bold cyan]Training Fold {fold_index + 1}/{k_folds}[/bold cyan]"
         )
 
         model = get_model()
@@ -297,6 +298,8 @@ def train_model(
 
                 break
 
+            logging.info(console.export_text())
+
         fold_duration = (datetime.now() - fold_start_time).total_seconds()
 
         fold_confusion_matrix = confusion_matrix.compute()
@@ -343,6 +346,8 @@ def train_model(
 
         console.print(confusion_matrix_table)
 
+        logging.info(console.export_text())
+
     average_validation_loss = (
         sum(fold["best_validation_loss"] for fold in fold_results) / k_folds
     )
@@ -362,6 +367,8 @@ def train_model(
     console.print(
         f"[bold]Total experiment time: {utilities.format_duration(experiment_duration)}[/bold]\n"
     )
+
+    logging.info(console.export_text())
 
     return {
         "fold_results": fold_results,
