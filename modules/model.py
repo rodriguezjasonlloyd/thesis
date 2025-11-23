@@ -6,15 +6,53 @@ import torch
 from torch import Tensor
 from torch.nn import (
     GELU,
+    AdaptiveAvgPool2d,
     AvgPool2d,
     Conv2d,
+    Flatten,
     LayerNorm,
     Linear,
+    MaxPool2d,
     Module,
+    ReLU,
     Sequential,
 )
 
 from modules import utilities
+
+
+class BaseCNN(Module):
+    def __init__(self) -> None:
+        super().__init__()
+
+        self.features = Sequential(
+            Conv2d(3, 32, kernel_size=3, padding=1),
+            ReLU(inplace=True),
+            MaxPool2d(2, 2),
+            Conv2d(32, 64, kernel_size=3, padding=1),
+            ReLU(inplace=True),
+            MaxPool2d(2, 2),
+            Conv2d(64, 128, kernel_size=3, padding=1),
+            ReLU(inplace=True),
+            MaxPool2d(2, 2),
+            Conv2d(128, 256, kernel_size=3, padding=1),
+            ReLU(inplace=True),
+            MaxPool2d(2, 2),
+            Conv2d(256, 512, kernel_size=3, padding=1),
+            ReLU(inplace=True),
+            MaxPool2d(2, 2),
+        )
+
+        self.classifier = Sequential(
+            AdaptiveAvgPool2d((1, 1)),
+            Flatten(),
+            Linear(512, 1),
+        )
+
+    def forward(self, input: Tensor) -> Tensor:
+        output = self.features(input)
+        output = self.classifier(output)
+        return output
 
 
 class FocalSelfAttention(Module):
@@ -245,9 +283,18 @@ def get_all_convolutional_layers(model: Module) -> list[tuple[str, str]]:
     return convolutional_layers
 
 
-def load_model(model_path: Path, with_fsa: bool = False) -> Module:
+def load_model(
+    model_path: Path, architecture: str = "convnext", with_fsa: bool = False
+) -> Module:
     device = utilities.get_device()
-    model = build_model(with_fsa=with_fsa)
+
+    if architecture == "base":
+        model = BaseCNN()
+    elif architecture == "convnext":
+        model = build_model(with_fsa=with_fsa)
+    else:
+        raise ValueError(f"Unknown architecture: {architecture}")
+
     model = model.to(device)
 
     if model_path and model_path.exists():
