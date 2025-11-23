@@ -55,86 +55,49 @@ def show_training_graphs(experiment_directory: Path, save_graphs: bool = False) 
     with open(results_path, "r") as file:
         results = json.load(file)
 
+    metric_keys = ["loss", "accuracy", "precision", "recall", "f1_score", "roc_auc"]
+
     fold_data = []
 
     for fold_result in results["fold_results"]:
-        epochs = [epoch["epoch"] for epoch in fold_result["epoch_history"]]
-        train_loss = [epoch["train_loss"] for epoch in fold_result["epoch_history"]]
-        validation_loss = [
-            epoch["validation_loss"] for epoch in fold_result["epoch_history"]
-        ]
-        train_accuracy = [
-            epoch["train_accuracy"] for epoch in fold_result["epoch_history"]
-        ]
-        validation_accuracy = [
-            epoch["validation_accuracy"] for epoch in fold_result["epoch_history"]
-        ]
-        train_precision = [
-            epoch["train_precision"] for epoch in fold_result["epoch_history"]
-        ]
-        validation_precision = [
-            epoch["validation_precision"] for epoch in fold_result["epoch_history"]
-        ]
-        train_recall = [epoch["train_recall"] for epoch in fold_result["epoch_history"]]
-        validation_recall = [
-            epoch["validation_recall"] for epoch in fold_result["epoch_history"]
-        ]
-        train_f1_score = [
-            epoch["train_f1_score"] for epoch in fold_result["epoch_history"]
-        ]
-        validation_f1_score = [
-            epoch["validation_f1_score"] for epoch in fold_result["epoch_history"]
-        ]
-        train_roc_auc = [
-            epoch["train_roc_auc"] for epoch in fold_result["epoch_history"]
-        ]
-        validation_roc_auc = [
-            epoch["validation_roc_auc"] for epoch in fold_result["epoch_history"]
-        ]
-        fold_data.append(
-            {
-                "fold": fold_result["fold"],
-                "epochs": epochs,
-                "train_loss": train_loss,
-                "validation_loss": validation_loss,
-                "train_accuracy": train_accuracy,
-                "validation_accuracy": validation_accuracy,
-                "train_precision": train_precision,
-                "validation_precision": validation_precision,
-                "train_recall": train_recall,
-                "validation_recall": validation_recall,
-                "train_f1_score": train_f1_score,
-                "validation_f1_score": validation_f1_score,
-                "train_roc_auc": train_roc_auc,
-                "validation_roc_auc": validation_roc_auc,
-            }
-        )
+        fold_dict = {
+            "fold": fold_result["fold"],
+            "epochs": [epoch["epoch"] for epoch in fold_result["epoch_history"]],
+        }
+
+        for metric in metric_keys:
+            fold_dict[f"train_{metric}"] = [
+                epoch[f"train_{metric}"] for epoch in fold_result["epoch_history"]
+            ]
+            fold_dict[f"validation_{metric}"] = [
+                epoch[f"validation_{metric}"] for epoch in fold_result["epoch_history"]
+            ]
+
+        fold_data.append(fold_dict)
 
     graphs_directory = experiment_directory / "graphs"
     graphs_directory.mkdir(exist_ok=True)
 
-    metrics = [
-        ("loss", "Loss", "train_loss", "validation_loss"),
-        ("accuracy", "Accuracy (%)", "train_accuracy", "validation_accuracy"),
-        ("precision", "Precision (%)", "train_precision", "validation_precision"),
-        ("recall", "Recall (%)", "train_recall", "validation_recall"),
-        ("f1_score", "F1 Score (%)", "train_f1_score", "validation_f1_score"),
-        ("roc_auc", "ROC-AUC (%)", "train_roc_auc", "validation_roc_auc"),
+    metrics_info = [
+        ("loss", "Loss"),
+        ("accuracy", "Accuracy (%)"),
+        ("precision", "Precision (%)"),
+        ("recall", "Recall (%)"),
+        ("f1_score", "F1 Score (%)"),
+        ("roc_auc", "ROC-AUC (%)"),
     ]
 
     if save_graphs:
         for fold in fold_data:
             fold_number = fold["fold"]
 
-            for metric_info in metrics:
-                metric_name, y_label, train_key, validation_key = metric_info
-
+            for metric_name, y_label in metrics_info:
                 figure = Figure()
 
                 figure.add_trace(
                     Scatter(
                         x=fold["epochs"],
-                        y=fold[train_key],
+                        y=fold[f"train_{metric_name}"],
                         name=f"Train {metric_name.capitalize()}",
                         mode="lines+markers",
                     )
@@ -143,7 +106,7 @@ def show_training_graphs(experiment_directory: Path, save_graphs: bool = False) 
                 figure.add_trace(
                     Scatter(
                         x=fold["epochs"],
-                        y=fold[validation_key],
+                        y=fold[f"validation_{metric_name}"],
                         name=f"Validation {metric_name.capitalize()}",
                         mode="lines+markers",
                         line=dict(dash="dash"),
@@ -167,193 +130,60 @@ def show_training_graphs(experiment_directory: Path, save_graphs: bool = False) 
                 figure.write_image(str(output_path))
 
     num_folds = len(fold_data)
+    num_metrics = len(metrics_info)
+
+    subplot_titles = [
+        f"Fold {fold['fold']} {metric_name.replace('_', ' ').title()}"
+        for fold in fold_data
+        for metric_name, _ in metrics_info
+    ]
 
     figure = subplots.make_subplots(
         rows=num_folds,
-        cols=6,
-        subplot_titles=[
-            title
-            for fold in fold_data
-            for title in (
-                f"Fold {fold['fold']} Loss",
-                f"Fold {fold['fold']} Accuracy",
-                f"Fold {fold['fold']} Precision",
-                f"Fold {fold['fold']} Recall",
-                f"Fold {fold['fold']} F1",
-                f"Fold {fold['fold']} ROC-AUC",
-            )
-        ],
+        cols=num_metrics,
+        subplot_titles=subplot_titles,
         vertical_spacing=0.05,
         horizontal_spacing=0.025,
     )
 
-    for index, fold in enumerate(fold_data):
-        row = index + 1
+    line_styles = {
+        "train": {},
+        "validation": {"dash": "dash"},
+    }
+
+    for fold_index, fold in enumerate(fold_data):
+        row = fold_index + 1
         fold_number = fold["fold"]
 
-        figure.add_trace(
-            Scatter(
-                x=fold["epochs"],
-                y=fold["train_loss"],
-                name=f"Fold {fold_number} Train Loss",
-                mode="lines+markers",
-                legendgroup=f"fold{fold_number}",
-            ),
-            row=row,
-            col=1,
-        )
+        for col_index, (metric_name, y_label) in enumerate(metrics_info, start=1):
+            figure.add_trace(
+                Scatter(
+                    x=fold["epochs"],
+                    y=fold[f"train_{metric_name}"],
+                    name=f"Fold {fold_number} Train {metric_name.title()}",
+                    mode="lines+markers",
+                    legendgroup=f"fold{fold_number}",
+                    line=line_styles["train"],
+                ),
+                row=row,
+                col=col_index,
+            )
 
-        figure.add_trace(
-            Scatter(
-                x=fold["epochs"],
-                y=fold["validation_loss"],
-                name=f"Fold {fold_number} Validation Loss",
-                mode="lines+markers",
-                line=dict(dash="dash"),
-                legendgroup=f"fold{fold_number}",
-            ),
-            row=row,
-            col=1,
-        )
+            figure.add_trace(
+                Scatter(
+                    x=fold["epochs"],
+                    y=fold[f"validation_{metric_name}"],
+                    name=f"Fold {fold_number} Validation {metric_name.title()}",
+                    mode="lines+markers",
+                    legendgroup=f"fold{fold_number}",
+                    line=line_styles["validation"],
+                ),
+                row=row,
+                col=col_index,
+            )
 
-        figure.add_trace(
-            Scatter(
-                x=fold["epochs"],
-                y=fold["train_accuracy"],
-                name=f"Fold {fold_number} Train Accuracy",
-                mode="lines+markers",
-                legendgroup=f"fold{fold_number}",
-            ),
-            row=row,
-            col=2,
-        )
-
-        figure.add_trace(
-            Scatter(
-                x=fold["epochs"],
-                y=fold["validation_accuracy"],
-                name=f"Fold {fold_number} Validation Accuracy",
-                mode="lines+markers",
-                line=dict(dash="dash"),
-                legendgroup=f"fold{fold_number}",
-            ),
-            row=row,
-            col=2,
-        )
-
-        figure.add_trace(
-            Scatter(
-                x=fold["epochs"],
-                y=fold["train_precision"],
-                name=f"Fold {fold_number} Train Precision",
-                mode="lines+markers",
-                legendgroup=f"fold{fold_number}",
-            ),
-            row=row,
-            col=3,
-        )
-
-        figure.add_trace(
-            Scatter(
-                x=fold["epochs"],
-                y=fold["validation_precision"],
-                name=f"Fold {fold_number} Validation Precision",
-                mode="lines+markers",
-                line=dict(dash="dash"),
-                legendgroup=f"fold{fold_number}",
-            ),
-            row=row,
-            col=3,
-        )
-
-        figure.add_trace(
-            Scatter(
-                x=fold["epochs"],
-                y=fold["train_recall"],
-                name=f"Fold {fold_number} Train Recall",
-                mode="lines+markers",
-                legendgroup=f"fold{fold_number}",
-            ),
-            row=row,
-            col=4,
-        )
-
-        figure.add_trace(
-            Scatter(
-                x=fold["epochs"],
-                y=fold["validation_recall"],
-                name=f"Fold {fold_number} Validation Recall",
-                mode="lines+markers",
-                line=dict(dash="dash"),
-                legendgroup=f"fold{fold_number}",
-            ),
-            row=row,
-            col=4,
-        )
-
-        figure.add_trace(
-            Scatter(
-                x=fold["epochs"],
-                y=fold["train_f1_score"],
-                name=f"Fold {fold_number} Train F1",
-                mode="lines+markers",
-                legendgroup=f"fold{fold_number}",
-            ),
-            row=row,
-            col=5,
-        )
-
-        figure.add_trace(
-            Scatter(
-                x=fold["epochs"],
-                y=fold["validation_f1_score"],
-                name=f"Fold {fold_number} Validation F1",
-                mode="lines+markers",
-                line=dict(dash="dash"),
-                legendgroup=f"fold{fold_number}",
-            ),
-            row=row,
-            col=5,
-        )
-
-        figure.add_trace(
-            Scatter(
-                x=fold["epochs"],
-                y=fold["train_roc_auc"],
-                name=f"Fold {fold_number} Train ROC-AUC",
-                mode="lines+markers",
-                legendgroup=f"fold{fold_number}",
-                line=dict(dash="dot"),
-            ),
-            row=row,
-            col=6,
-        )
-
-        figure.add_trace(
-            Scatter(
-                x=fold["epochs"],
-                y=fold["validation_roc_auc"],
-                name=f"Fold {fold_number} Validation ROC-AUC",
-                mode="lines+markers",
-                line=dict(dash="dashdot"),
-                legendgroup=f"fold{fold_number}",
-            ),
-            row=row,
-            col=6,
-        )
-
-        figure.update_xaxes(title_text="Epoch", row=row, col=1)
-        figure.update_xaxes(title_text="Epoch", row=row, col=2)
-        figure.update_xaxes(title_text="Epoch", row=row, col=3)
-        figure.update_xaxes(title_text="Epoch", row=row, col=4)
-        figure.update_xaxes(title_text="Epoch", row=row, col=5)
-        figure.update_xaxes(title_text="Epoch", row=row, col=6)
-        figure.update_yaxes(title_text="Loss", row=row, col=1)
-        figure.update_yaxes(title_text="Accuracy (%)", row=row, col=2)
-        figure.update_yaxes(title_text="Precision (%)", row=row, col=3)
-        figure.update_yaxes(title_text="Recall (%)", row=row, col=4)
-        figure.update_yaxes(title_text="Score (%)", row=row, col=5)
-        figure.update_yaxes(title_text="Score (%)", row=row, col=6)
+            figure.update_xaxes(title_text="Epoch", row=row, col=col_index)
+            figure.update_yaxes(title_text=y_label, row=row, col=col_index)
 
     figure.update_layout(
         title={
@@ -362,7 +192,7 @@ def show_training_graphs(experiment_directory: Path, save_graphs: bool = False) 
             "xanchor": "center",
         },
         height=300 * num_folds,
-        width=450 * len(metrics),
+        width=450 * num_metrics,
         showlegend=True,
     )
 
