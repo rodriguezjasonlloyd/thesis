@@ -6,7 +6,7 @@ class State(Enum):
     MainMenu = enum.auto()
     Quit = enum.auto()
 
-    AnalyzeMenu = enum.auto()
+    AnalysisMenu = enum.auto()
     AnalyzeDescriptive = enum.auto()
     AnalyzeSampleBatch = enum.auto()
     AnalyzeTrainingGraphs = enum.auto()
