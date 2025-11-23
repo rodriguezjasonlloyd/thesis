@@ -19,7 +19,8 @@ from pytorch_grad_cam.grad_cam_plusplus import GradCAMPlusPlus
 from torch import Tensor
 from torch.nn import Module
 
-from modules.data import get_class_names, get_data_root_path, transform_image_to_tensor
+from modules import utilities
+from modules.data import get_class_names, get_data_root_path
 from modules.model import load_model
 from modules.trainer import truncate
 
@@ -46,7 +47,7 @@ def predict_image(
         return ("Model load error", 0.0)
 
     try:
-        tensor = transform_image_to_tensor(image)
+        tensor = utilities.image_to_tensor(image)
     except Exception as exception:
         print(f"Image transform error: {exception}")
         return ("Image transform error", 0.0)
@@ -111,7 +112,7 @@ def generate_gradcam(image, uploaded_model, with_fsa, layer_name):
         model_path = Path(uploaded_model.name)
         model = load_model(model_path, with_fsa=with_fsa)
         rgb_image = numpy.float32(image) / 255
-        input_tensor = transform_image_to_tensor(image).unsqueeze(0)
+        input_tensor = utilities.image_to_tensor(image).unsqueeze(0)
 
         target_layer = model.get_submodule(layer_name)
         target_layers = [target_layer]

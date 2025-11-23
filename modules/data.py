@@ -28,7 +28,7 @@ class ImageDataset(Dataset):
         with Image.open(path) as file:
             image = file.convert("RGB")
 
-        return utilities.transform_image_to_tensor(
+        return utilities.image_to_tensor(
             image, self._pretrained, self._augmented
         ), label
 
