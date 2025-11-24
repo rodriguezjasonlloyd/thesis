@@ -7,6 +7,7 @@ from torch.nn import (
     AdaptiveAvgPool2d,
     Conv2d,
     Flatten,
+    LayerNorm,
     Linear,
     MaxPool2d,
     Module,
@@ -52,39 +53,47 @@ class BaseCNN(Module):
         return output
 
 
-def channels_for_stage(model: Module, stage_idx: int) -> int:
-    stage_path = f"stages.{stage_idx}"
-    stage = model.get_submodule(stage_path)
+def get_channels_for_stage(model: Module, stage_index: int) -> int:
+    stage_path = f"stages.{stage_index}"
 
-    if stage is None:
-        raise RuntimeError(f"Stage not found at path: {stage_path}")
+    try:
+        stage = model.get_submodule(stage_path)
+        blocks = stage.get_submodule("blocks")
+    except AttributeError as exception:
+        raise RuntimeError(f"Stage not found at path: {stage_path}") from exception
 
-    blocks_list = list(stage.get_submodule("blocks").children())
+    blocks_list: list[Module] = list(blocks.children())
 
     if len(blocks_list) == 0:
         raise RuntimeError(f"No blocks found under {stage_path}.blocks")
 
-    first_block = blocks_list[0]
+    first_block: Module = blocks_list[0]
 
-    conv_dw = getattr(first_block, "conv_dw", None)
+    if hasattr(first_block, "conv_dw"):
+        conv_dw = first_block.conv_dw
 
-    if conv_dw is not None and hasattr(conv_dw, "in_channels"):
-        return int(conv_dw.in_channels)
+        if isinstance(conv_dw, Conv2d):
+            return int(conv_dw.in_channels)
 
-    norm = getattr(first_block, "norm", None)
+    if hasattr(first_block, "norm"):
+        norm = first_block.norm
 
-    if norm is not None and hasattr(norm, "normalized_shape"):
-        ns = norm.normalized_shape
+        if isinstance(norm, LayerNorm) and hasattr(norm, "normalized_shape"):
+            normalized_shape = norm.normalized_shape
 
-        if isinstance(ns, (tuple, list)) and len(ns) > 0:
-            return int(ns[0])
+            if (
+                isinstance(normalized_shape, (tuple, list, torch.Size))
+                and len(normalized_shape) > 0
+            ):
+                return int(normalized_shape[0])
 
-    for m in first_block.modules():
-        if isinstance(m, Conv2d) and hasattr(m, "in_channels"):
-            return int(m.in_channels)
+    for module in first_block.modules():
+        if isinstance(module, Conv2d):
+            return int(module.in_channels)
 
     raise RuntimeError(
-        f"Could not determine channel dim for stage {stage_idx}, inspect your block structure."
+        f"Could not determine channel dim for stage {stage_index}. "
+        f"First block type: {type(first_block).__name__}"
     )
 
 
@@ -140,22 +149,19 @@ def build_model(pretrained: bool = False, with_fsa: bool = False) -> Module:
                 parameters.requires_grad = False
 
     if with_fsa:
-        stage2_blocks = model.get_submodule("stages.2.blocks")
-        stage3_blocks = model.get_submodule("stages.3.blocks")
+        try:
+            stage2_blocks = model.get_submodule("stages.2.blocks")
+            stage3_blocks = model.get_submodule("stages.3.blocks")
+        except AttributeError as exception:
+            raise RuntimeError(
+                "Expected stages.2.blocks and stages.3.blocks in model"
+            ) from exception
 
-        if stage2_blocks is None or stage3_blocks is None:
-            raise RuntimeError("Expected stages.2.blocks and stages.3.blocks in model")
+        stage2_block_count = len(list(stage2_blocks.children()))
+        stage3_block_count = len(list(stage3_blocks.children()))
 
-        if not isinstance(stage2_blocks, Sequential) or not isinstance(
-            stage3_blocks, Sequential
-        ):
-            raise RuntimeError("Expected blocks to be Sequential")
-
-        stage2_block_count = len(stage2_blocks)
-        stage3_block_count = len(stage3_blocks)
-
-        stage2_channels = channels_for_stage(model, 2)
-        stage3_channels = channels_for_stage(model, 3)
+        stage2_channels = get_channels_for_stage(model, 2)
+        stage3_channels = get_channels_for_stage(model, 3)
 
         stage2_transformer_blocks = Sequential(
             *[
@@ -163,6 +169,7 @@ def build_model(pretrained: bool = False, with_fsa: bool = False) -> Module:
                 for _ in range(stage2_block_count)
             ]
         )
+
         stage3_transformer_blocks = Sequential(
             *[
                 TransformerBlock(dim=stage3_channels, num_heads=8, win_size=4)
