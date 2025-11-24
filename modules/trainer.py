@@ -257,7 +257,8 @@ def train_model(
             epoch_duration = (datetime.now() - epoch_start_time).total_seconds()
 
             table = Table(
-                title=f"Fold {fold_index + 1} - Epoch {epoch + 1}/{num_epochs}"
+                title=f"Fold {fold_index + 1} - Epoch {epoch + 1}/{num_epochs}",
+                title_justify="left",
             )
             table.add_column("Split", style="cyan")
             table.add_column("Loss", justify="right", style="magenta")
@@ -324,7 +325,7 @@ def train_model(
         )
 
         confusion_matrix_table = Table(
-            title=f"Confusion Matrix - Fold {fold_index + 1}"
+            title=f"Confusion Matrix - Fold {fold_index + 1}", title_justify="left"
         )
         confusion_matrix_table.add_column("", style="cyan")
         confusion_matrix_table.add_column(

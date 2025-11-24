@@ -77,7 +77,9 @@ def analyze_descriptive(root: Path = data.get_data_root_path()) -> None:
 
     console.print("\n[bold cyan]Dataset Descriptive Statistics[/bold cyan]\n")
 
-    overall_table = Table(title="Overall Statistics", show_header=False)
+    overall_table = Table(
+        title="Overall Statistics", show_header=False, title_justify="left"
+    )
     overall_table.add_column("Metric", style="cyan")
     overall_table.add_column("Value", style="green")
     overall_table.add_row("Total Images", str(total_images))
@@ -85,7 +87,7 @@ def analyze_descriptive(root: Path = data.get_data_root_path()) -> None:
     console.print(overall_table)
     console.print()
 
-    class_table = Table(title="Class Distribution")
+    class_table = Table(title="Class Distribution", title_justify="left")
     class_table.add_column("Class", style="cyan")
     class_table.add_column("Count", justify="right", style="green")
     class_table.add_column("Percentage", justify="right", style="yellow")
@@ -106,7 +108,7 @@ def analyze_descriptive(root: Path = data.get_data_root_path()) -> None:
     brightnesses = [image["brightness"] for image in all_images]
     resolutions = [image["resolution"] for image in all_images]
 
-    dimensions_table = Table(title="Image Dimensions (pixels)")
+    dimensions_table = Table(title="Image Dimensions (pixels)", title_justify="left")
     dimensions_table.add_column("Statistic", style="cyan")
     dimensions_table.add_column("Width", justify="right", style="green")
     dimensions_table.add_column("Height", justify="right", style="green")
@@ -137,7 +139,7 @@ def analyze_descriptive(root: Path = data.get_data_root_path()) -> None:
     )
     console.print()
 
-    aspect_table = Table(title="Aspect Ratio Statistics")
+    aspect_table = Table(title="Aspect Ratio Statistics", title_justify="left")
     aspect_table.add_column("Statistic", style="cyan")
     aspect_table.add_column("Value", justify="right", style="green")
 
@@ -153,7 +155,9 @@ def analyze_descriptive(root: Path = data.get_data_root_path()) -> None:
     console.print(aspect_table)
     console.print()
 
-    brightness_table = Table(title="Brightness Statistics (0-255)")
+    brightness_table = Table(
+        title="Brightness Statistics (0-255)", title_justify="left"
+    )
     brightness_table.add_column("Statistic", style="cyan")
     brightness_table.add_column("Value", justify="right", style="green")
 
@@ -169,7 +173,7 @@ def analyze_descriptive(root: Path = data.get_data_root_path()) -> None:
     console.print(brightness_table)
     console.print()
 
-    file_size_table = Table(title="File Size Statistics")
+    file_size_table = Table(title="File Size Statistics", title_justify="left")
     file_size_table.add_column("Statistic", style="cyan")
     file_size_table.add_column("Size", justify="right", style="green")
 
@@ -187,7 +191,7 @@ def analyze_descriptive(root: Path = data.get_data_root_path()) -> None:
     console.print(file_size_table)
     console.print()
 
-    color_table = Table(title="Mean RGB Values by Class")
+    color_table = Table(title="Mean RGB Values by Class", title_justify="left")
     color_table.add_column("Class", style="cyan")
     color_table.add_column("Red", justify="right", style="red")
     color_table.add_column("Green", justify="right", style="green")
