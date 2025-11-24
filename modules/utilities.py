@@ -125,9 +125,14 @@ def dataclass_to_dict(object: T) -> dict[str, int | float | str | bool]:
 
 def setup_logging(log_directory: Path, level=logging.INFO):
     logging.basicConfig(
-        level=level,
         format="%(message)s",
-        handlers=[logging.FileHandler(log_directory / "experiment.log")],
+        handlers=[
+            logging.FileHandler(
+                log_directory / "experiment.log",
+                encoding="utf-8",
+            )
+        ],
+        level=level,
     )
 
 
