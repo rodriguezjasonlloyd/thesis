@@ -11,4 +11,6 @@ wheels/
 
 data/
 
+models/
+graphs/
 *.log
