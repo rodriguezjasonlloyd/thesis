@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy
 from PIL import Image
 from plotly import express, subplots
-from plotly.graph_objects import Figure, Scatter
+from plotly.graph_objects import Figure, Heatmap, Scatter
 from rich.console import Console
 from rich.table import Table
 from torch import Tensor
@@ -251,11 +251,13 @@ def analyze_sample_batch(pretrained: bool = False) -> None:
         print(f"Error during visualization: {exception}")
 
 
-def show_training_graphs(experiment_directory: Path, save_graphs: bool = False) -> None:
+def analyze_training_graphs(
+    experiment_directory: Path, save_graphs: bool = False
+) -> None:
     results_path = experiment_directory / "results.json"
 
     with open(results_path, "r") as file:
-        results = json.load(file)
+        results: TrainingResults = json.load(file)
 
     metric_keys = ["loss", "accuracy", "precision", "recall", "f1_score", "roc_auc"]
 
@@ -265,6 +267,7 @@ def show_training_graphs(experiment_directory: Path, save_graphs: bool = False) 
         fold_dict = {
             "fold": fold_result["fold"],
             "epochs": [epoch["epoch"] for epoch in fold_result["epoch_history"]],
+            "confusion_matrix": fold_result["confusion_matrix"],
         }
 
         for metric in metric_keys:
@@ -331,21 +334,58 @@ def show_training_graphs(experiment_directory: Path, save_graphs: bool = False) 
                 output_path = graphs_directory / f"fold_{fold_number}_{metric_name}.png"
                 figure.write_image(str(output_path))
 
+            confusion_matrix = fold["confusion_matrix"]
+            confusion_matrix_figure = Figure(
+                data=Heatmap(
+                    z=confusion_matrix,
+                    x=["Predicted: 0", "Predicted: 1"],
+                    y=["Actual: 0", "Actual: 1"],
+                    text=confusion_matrix,
+                    texttemplate="%{text}",
+                    colorscale="Blues",
+                    showscale=True,
+                )
+            )
+
+            confusion_matrix_figure.update_layout(
+                title={
+                    "text": f"Fold {fold_number} - Confusion Matrix",
+                    "x": 0.5,
+                    "xanchor": "center",
+                },
+                height=400,
+                width=500,
+            )
+
+            confusion_matrix_output_path = (
+                graphs_directory / f"fold_{fold_number}_confusion_matrix.png"
+            )
+
+            confusion_matrix_figure.write_image(str(confusion_matrix_output_path))
+
     num_folds = len(fold_data)
     num_metrics = len(metrics_info)
 
-    subplot_titles = [
-        f"Fold {fold['fold']} {metric_name.replace('_', ' ').title()}"
-        for fold in fold_data
-        for metric_name, _ in metrics_info
-    ]
+    subplot_titles = []
+
+    for fold in fold_data:
+        for metric_name, _ in metrics_info:
+            subplot_titles.append(
+                f"Fold {fold['fold']} {metric_name.replace('_', ' ').title()}"
+            )
+        subplot_titles.append(f"Fold {fold['fold']} Confusion Matrix")
+        specs = [
+            [{"type": "xy"}] * num_metrics + [{"type": "heatmap"}]
+            for _ in range(num_folds)
+        ]
 
     figure = subplots.make_subplots(
         rows=num_folds,
-        cols=num_metrics,
+        cols=num_metrics + 1,
         subplot_titles=subplot_titles,
         vertical_spacing=0.05,
         horizontal_spacing=0.025,
+        specs=specs,
     )
 
     line_styles = {
@@ -387,6 +427,22 @@ def show_training_graphs(experiment_directory: Path, save_graphs: bool = False) 
             figure.update_xaxes(title_text="Epoch", row=row, col=col_index)
             figure.update_yaxes(title_text=y_label, row=row, col=col_index)
 
+        confusion_matrix = fold["confusion_matrix"]
+
+        figure.add_trace(
+            Heatmap(
+                z=confusion_matrix,
+                x=["Predicted: 0", "Predicted: 1"],
+                y=["Actual: 0", "Actual: 1"],
+                text=confusion_matrix,
+                texttemplate="%{text}",
+                colorscale="Blues",
+                showscale=False,
+            ),
+            row=row,
+            col=num_metrics + 1,
+        )
+
     figure.update_layout(
         title={
             "text": f"Training Metrics: {results['experiment_name']}",
@@ -394,7 +450,7 @@ def show_training_graphs(experiment_directory: Path, save_graphs: bool = False) 
             "xanchor": "center",
         },
         height=300 * num_folds,
-        width=450 * num_metrics,
+        width=450 * num_metrics + 500,
         showlegend=True,
     )
 
