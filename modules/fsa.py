@@ -35,8 +35,11 @@ class WindowPartitioner(Module):
         )
 
         num_windows = (height // self.window_size) * (width // self.window_size)
-        tokens = windows.transpose(1, 2).reshape(
-            batch * num_windows, self.window_size * self.window_size, channel
+
+        tokens = (
+            windows.transpose(1, 2)
+            .reshape(batch * num_windows, channel, self.window_size * self.window_size)
+            .transpose(1, 2)
         )
 
         return tokens, {
@@ -58,15 +61,30 @@ class LocalContextExtractor(Module):
     def forward(self, features: Tensor, num_windows: int) -> Tensor:
         batch, channel, height, width = features.shape
 
-        pad = self.window_size // 2
-        features = torch.nn.functional.pad(features, (pad, pad, pad, pad))
+        target_size = (
+            int(math.sqrt(num_windows)) - 1
+        ) * self.window_size + self.local_size
 
-        local = torch.nn.functional.unfold(
-            features, kernel_size=self.local_size, stride=self.window_size
+        pad_height = max(0, target_size - height)
+        pad_width = max(0, target_size - width)
+
+        pad_top = pad_height // 2
+        pad_bottom = pad_height - pad_top
+        pad_left = pad_width // 2
+        pad_right = pad_width - pad_left
+
+        features = torch.nn.functional.pad(
+            features, (pad_left, pad_right, pad_top, pad_bottom)
         )
 
-        return local.transpose(1, 2).reshape(
-            batch * num_windows, self.local_size * self.local_size, channel
+        return (
+            torch.nn.functional.unfold(
+                features, kernel_size=self.local_size, stride=self.window_size
+            )
+            .view(batch, channel, self.local_size * self.local_size, -1)
+            .permute(0, 3, 2, 1)
+            .contiguous()
+            .view(batch * num_windows, self.local_size * self.local_size, channel)
         )
 
 
