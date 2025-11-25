@@ -1,16 +1,17 @@
-name = "FD - baseline model without FSA"
+name = "CNN model with Clean Dataset"
 seed = 42
 
 [data]
 root = "data"
-pretrained = false
 k_folds = 5
 batch_size = 32
-shuffle = false
 num_workers = 2
 max_items_per_class = 0
+augmented = false
+preprocessing = "none"
 
 [model]
+architecture = "base"
 pretrained = false
 with_fsa = false
 
@@ -22,4 +23,3 @@ weight_decay = 0.001
 num_epochs = 30
 patience = 5
 min_delta = 0.0001
-

@@ -1,0 +1,25 @@
+name = "ConvNext V2 model of Clean Dataset, Preprocessing Method: All"
+seed = 42
+
+[data]
+root = "data"
+k_folds = 5
+batch_size = 32
+num_workers = 2
+max_items_per_class = 0
+augmented = false
+preprocessing = "all"
+
+[model]
+architecture = "convnext"
+pretrained = false
+with_fsa = false
+
+[optimizer]
+learning_rate = 0.0001
+weight_decay = 0.001
+
+[training]
+num_epochs = 30
+patience = 5
+min_delta = 0.0001

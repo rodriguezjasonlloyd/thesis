@@ -1,18 +1,19 @@
-name = "FD - baseline model with FSA"
+name = "ConvNext V2 model of Figshare Dataset, Preprocessing Method: OTSU"
 seed = 42
 
 [data]
 root = "data"
-pretrained = false
 k_folds = 5
 batch_size = 32
-shuffle = false
 num_workers = 2
 max_items_per_class = 0
+augmented = false
+preprocessing = "otsu_threshold"
 
 [model]
+architecture = "convnext"
 pretrained = false
-with_fsa = true
+with_fsa = false
 
 [optimizer]
 learning_rate = 0.0001

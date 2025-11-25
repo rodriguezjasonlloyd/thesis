@@ -1,17 +1,18 @@
-name = "FD - baseline model without FSA"
+name = "ConvNext V2 pretrained model of Figshare Dataset "
 seed = 42
 
 [data]
 root = "data"
-pretrained = false
 k_folds = 5
 batch_size = 32
-shuffle = false
 num_workers = 2
 max_items_per_class = 0
+augmented = false
+preprocessing = "none"
 
 [model]
-pretrained = false
+architecture = "convnext"
+pretrained = true
 with_fsa = false
 
 [optimizer]
