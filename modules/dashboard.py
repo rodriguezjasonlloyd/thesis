@@ -103,18 +103,26 @@ def generate_cam(
             Path(uploaded_model.name), architecture=architecture, with_fsa=with_fsa
         )
         cam_extractor = GradCAMpp(loaded_model, target_layer=layer_name)
+        device = next(loaded_model.parameters()).device
         output = loaded_model(
             utilities.image_to_tensor(
                 uploaded_image, preprocessing=PreprocessingMode(preprocessing)
-            ).unsqueeze(0)
+            )
+            .unsqueeze(0)
+            .to(device)
         )
-        class_index = output.squeeze(0).argmax().item()
 
-        activation_map = cam_extractor(class_index, output)
-        heatmap = transforms.functional.to_pil_image(
-            activation_map[0].squeeze(0), mode="F"
-        )
-        result = torchcam.utils.overlay_mask(uploaded_image, heatmap, alpha=0.5)
+        class_index = int(torch.sigmoid(output).cpu().item() > 0.5)
+
+        if class_index == 0:
+            activation_map = cam_extractor(class_index, output)
+            heatmap = transforms.functional.to_pil_image(
+                activation_map[0].squeeze(0), mode="F"
+            )
+            result = torchcam.utils.overlay_mask(uploaded_image, heatmap, alpha=0.5)
+        else:
+            result = uploaded_image
+
         cam_extractor.clear_hooks()
 
         return result
@@ -164,7 +172,7 @@ def make_dashboard() -> Blocks:
             interactive=False,
         )
         show_cam_button = Button("Show Grad-CAM++")
-        cam_output = Image(label="Grad-CAM++ Visualization")
+        cam_output = Image(label="Grad-CAM++ Visualization", height=300)
 
         architecture_radio.change(
             fn=update_layer_choices,
