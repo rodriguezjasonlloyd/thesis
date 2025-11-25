@@ -22,6 +22,7 @@ from torchcam.methods import GradCAMpp
 from torchvision import transforms
 
 from modules import data, model, utilities
+from modules.preprocessing import PreprocessingMode
 
 
 def predict_image(
@@ -29,6 +30,7 @@ def predict_image(
     uploaded_image: PillowImage.Image | None,
     architecture: str,
     with_fsa: bool,
+    preprocessing: str,
 ) -> tuple[str, str]:
     if uploaded_model is None:
         return ("No model uploaded", "")
@@ -43,7 +45,9 @@ def predict_image(
     except Exception:
         return ("Something went wrong with loading the model", "")
 
-    image_tensor = utilities.image_to_tensor(uploaded_image)
+    image_tensor = utilities.image_to_tensor(
+        uploaded_image, preprocessing=PreprocessingMode(preprocessing)
+    )
 
     try:
         with torch.no_grad():
@@ -92,13 +96,18 @@ def generate_cam(
     architecture: str,
     with_fsa: bool,
     layer_name: str,
+    preprocessing: str,
 ) -> PillowImage.Image | None:
     try:
         loaded_model = model.load_model(
             Path(uploaded_model.name), architecture=architecture, with_fsa=with_fsa
         )
         cam_extractor = GradCAMpp(loaded_model, target_layer=layer_name)
-        output = loaded_model(utilities.image_to_tensor(uploaded_image).unsqueeze(0))
+        output = loaded_model(
+            utilities.image_to_tensor(
+                uploaded_image, preprocessing=PreprocessingMode(preprocessing)
+            ).unsqueeze(0)
+        )
         class_index = output.squeeze(0).argmax().item()
 
         activation_map = cam_extractor(class_index, output)
@@ -117,14 +126,27 @@ def make_dashboard() -> Blocks:
     with Blocks() as dashboard:
         Markdown("# ConvNext V2 with Grad-CAM++ Dashboard for PCOM Classification")
 
-        with Column(variant="panel"):
+        with Column():
+            preprocessing_dropdown = Dropdown(
+                label="Preprocessing Mode",
+                choices=[
+                    ("None", "none"),
+                    ("CLAHE", "clahe"),
+                    ("Otsu Threshold", "otsu_threshold"),
+                    ("Deep Contrast", "deep_contrast"),
+                    ("All (Aggressive Composite)", "all"),
+                ],
+                value="none",
+            )
+
+        with Column():
             architecture_radio = Radio(
                 label="Architecture",
                 choices=[("Base CNN", "base"), ("ConvNeXt V2", "convnext")],
                 value="convnext",
             )
 
-        with Column(variant="panel"):
+        with Column():
             fsa_checkbox = Checkbox(label="Use Focal Self-Attention (FSA)")
 
         upload_model = File(label="Upload Model", file_types=[".pt"])
@@ -164,7 +186,13 @@ def make_dashboard() -> Blocks:
 
         predict_button.click(
             fn=predict_image,
-            inputs=[upload_model, upload_image, architecture_radio, fsa_checkbox],
+            inputs=[
+                upload_model,
+                upload_image,
+                architecture_radio,
+                fsa_checkbox,
+                preprocessing_dropdown,
+            ],
             outputs=[predicted_label, predicted_confidence],
         )
 
@@ -176,6 +204,7 @@ def make_dashboard() -> Blocks:
                 architecture_radio,
                 fsa_checkbox,
                 layer_selector,
+                preprocessing_dropdown,
             ],
             outputs=cam_output,
         )
