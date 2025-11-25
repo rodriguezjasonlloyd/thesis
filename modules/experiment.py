@@ -120,7 +120,7 @@ def create_get_optimizer(
 
 
 def run_experiment(experiment_directory: Path) -> None:
-    utilities.setup_logging(experiment_directory)
+    utilities.setup_logging(experiment_directory, "experiment")
 
     if not experiment_directory.exists():
         raise FileNotFoundError(
