@@ -123,12 +123,12 @@ def dataclass_to_dict(object: T) -> dict[str, int | float | str | bool]:
     return result
 
 
-def setup_logging(log_directory: Path, level=logging.INFO):
+def setup_logging(log_directory: Path, log_filename: str, level=logging.INFO):
     logging.basicConfig(
         format="%(message)s",
         handlers=[
             logging.FileHandler(
-                log_directory / "experiment.log",
+                log_directory / f"{log_filename}.log",
                 encoding="utf-8",
             )
         ],
