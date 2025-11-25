@@ -49,19 +49,17 @@ class FoldResult(TypedDict):
 
 class TrainingResults(TypedDict):
     fold_results: list[FoldResult]
-    average_validation_loss: float
-    average_validation_accuracy: float
     k_folds: int
 
 
-def compute_accuracy(output: Tensor, target: Tensor) -> float:
+def compute_accuracy(output: Tensor, target: Tensor) -> tuple[int, int]:
     with torch.no_grad():
         predicted = (torch.sigmoid(output.squeeze()) > 0.5).long()
         target_squeezed = target.squeeze().long()
         correct = (predicted == target_squeezed).sum().item()
         total = target.size(0)
 
-        return 100.0 * correct / total
+        return correct, total
 
 
 def compute_metrics(
@@ -145,7 +143,8 @@ def train_model(
 
             model.train()
             train_loss = 0.0
-            train_accuracy = 0.0
+            train_correct = 0
+            train_total = 0
             train_outputs = []
             train_targets = []
 
@@ -167,13 +166,16 @@ def train_model(
                 optimizer.step()
 
                 train_loss += loss_tensor.item()
-                train_accuracy += compute_accuracy(output_tensor, label)
+                correct, total = compute_accuracy(output_tensor, label)
+                train_correct += correct
+                train_total += total
                 train_outputs.append(output_tensor.detach())
                 train_targets.append(label.detach())
 
             model.eval()
             validation_loss = 0.0
-            validation_accuracy = 0.0
+            validation_correct = 0
+            validation_total = 0
             validation_outputs = []
             validation_targets = []
 
@@ -193,21 +195,13 @@ def train_model(
                     loss_tensor: Tensor = criterion(output_tensor, label)
 
                     validation_loss += loss_tensor.item()
-                    validation_accuracy += compute_accuracy(output_tensor, label)
+                    correct, total = compute_accuracy(output_tensor, label)
+                    validation_correct += correct
+                    validation_total += total
                     validation_outputs.append(output_tensor.detach())
                     validation_targets.append(label.detach())
 
             validation_metrics = compute_metrics(validation_outputs, validation_targets)
-
-            with torch.no_grad():
-                all_validation_outputs = torch.cat(validation_outputs, dim=0)
-                all_validation_targets = torch.cat(validation_targets, dim=0)
-                validation_predictions = (
-                    torch.sigmoid(all_validation_outputs.squeeze()) > 0.5
-                ).long()
-                confusion_matrix.update(
-                    validation_predictions, all_validation_targets.squeeze().long()
-                )
 
             if len(train_loader) == 0:
                 raise ValueError(f"Fold {fold_index + 1}: Training loader is empty")
@@ -215,10 +209,10 @@ def train_model(
             if len(validation_loader) == 0:
                 raise ValueError(f"Fold {fold_index + 1}: Validation loader is empty")
 
-            average_train_loss = train_loss / len(train_loader)
-            average_train_accuracy = train_accuracy / len(train_loader)
-            average_validation_loss = validation_loss / len(validation_loader)
-            average_validation_accuracy = validation_accuracy / len(validation_loader)
+            overall_train_loss = train_loss / len(train_loader)
+            overall_train_accuracy = 100.0 * train_correct / train_total
+            overall_validation_loss = validation_loss / len(validation_loader)
+            overall_validation_accuracy = 100.0 * validation_correct / validation_total
 
             train_metrics = compute_metrics(train_outputs, train_targets)
             validation_metrics = compute_metrics(validation_outputs, validation_targets)
@@ -226,14 +220,14 @@ def train_model(
             epoch_history.append(
                 {
                     "epoch": epoch + 1,
-                    "train_loss": average_train_loss,
-                    "train_accuracy": average_train_accuracy,
+                    "train_loss": overall_train_loss,
+                    "train_accuracy": overall_train_accuracy,
                     "train_precision": train_metrics["precision"],
                     "train_recall": train_metrics["recall"],
                     "train_f1_score": train_metrics["f1_score"],
                     "train_roc_auc": train_metrics["roc_auc"],
-                    "validation_loss": average_validation_loss,
-                    "validation_accuracy": average_validation_accuracy,
+                    "validation_loss": overall_validation_loss,
+                    "validation_accuracy": overall_validation_accuracy,
                     "validation_precision": validation_metrics["precision"],
                     "validation_recall": validation_metrics["recall"],
                     "validation_f1_score": validation_metrics["f1_score"],
@@ -241,14 +235,26 @@ def train_model(
                 }
             )
 
-            if average_validation_loss < best_validation_loss - min_delta:
-                best_validation_loss = average_validation_loss
-                best_validation_accuracy = average_validation_accuracy
+            if overall_validation_loss < best_validation_loss - min_delta:
+                best_validation_loss = overall_validation_loss
+                best_validation_accuracy = overall_validation_accuracy
                 epochs_without_improvement = 0
                 torch.save(
                     model.state_dict(),
                     models_directory / f"best_model_fold_{fold_index + 1}.pt",
                 )
+
+                confusion_matrix.reset()
+
+                with torch.no_grad():
+                    all_validation_outputs = torch.cat(validation_outputs, dim=0)
+                    all_validation_targets = torch.cat(validation_targets, dim=0)
+                    validation_predictions = (
+                        torch.sigmoid(all_validation_outputs.squeeze()) > 0.5
+                    ).long()
+                    confusion_matrix.update(
+                        validation_predictions, all_validation_targets.squeeze().long()
+                    )
             else:
                 epochs_without_improvement += 1
 
@@ -270,8 +276,8 @@ def train_model(
 
             table.add_row(
                 "Train",
-                f"{utilities.truncate(average_train_loss, 4):.4f}",
-                f"{utilities.truncate(average_train_accuracy, 2):.2f}%",
+                f"{utilities.truncate(overall_train_loss, 4):.4f}",
+                f"{utilities.truncate(overall_train_accuracy, 2):.2f}%",
                 f"{utilities.truncate(train_metrics['precision'], 2):.2f}%",
                 f"{utilities.truncate(train_metrics['recall'], 2):.2f}%",
                 f"{utilities.truncate(train_metrics['f1_score'], 2):.2f}%",
@@ -279,8 +285,8 @@ def train_model(
             )
             table.add_row(
                 "Validation",
-                f"{utilities.truncate(average_validation_loss, 4):.4f}",
-                f"{utilities.truncate(average_validation_accuracy, 2):.2f}%",
+                f"{utilities.truncate(overall_validation_loss, 4):.4f}",
+                f"{utilities.truncate(overall_validation_accuracy, 2):.2f}%",
                 f"{utilities.truncate(validation_metrics['precision'], 2):.2f}%",
                 f"{utilities.truncate(validation_metrics['recall'], 2):.2f}%",
                 f"{utilities.truncate(validation_metrics['f1_score'], 2):.2f}%",
@@ -325,7 +331,8 @@ def train_model(
         )
 
         confusion_matrix_table = Table(
-            title=f"Confusion Matrix - Fold {fold_index + 1}", title_justify="left"
+            title=f" Best Confusion Matrix - Fold {fold_index + 1}",
+            title_justify="left",
         )
         confusion_matrix_table.add_column("", style="cyan")
         confusion_matrix_table.add_column(
@@ -349,21 +356,20 @@ def train_model(
 
         logging.info(console.export_text())
 
-    average_validation_loss = (
-        sum(fold["best_validation_loss"] for fold in fold_results) / k_folds
-    )
-    average_validation_accuracy = (
-        sum(fold["best_validation_accuracy"] for fold in fold_results) / k_folds
-    )
-
     experiment_duration = (datetime.now() - experiment_start_time).total_seconds()
 
+    best_fold = max(fold_results, key=lambda x: x["best_validation_accuracy"])
+    best_fold_index = best_fold["fold"]
+    best_validation_loss = best_fold["best_validation_loss"]
+    best_validation_accuracy = best_fold["best_validation_accuracy"]
+
     console.print("[bold cyan]K-Fold Cross Validation Results[/bold cyan]")
+    console.print(f"Best Fold: [cyan]{best_fold_index}/{k_folds}[/cyan]")
     console.print(
-        f"Average Validation Loss: [magenta]{utilities.truncate(average_validation_loss, 4):.4f}[/magenta]"
+        f"Best Validation Loss: [magenta]{utilities.truncate(best_validation_loss, 4):.4f}[/magenta]"
     )
     console.print(
-        f"Average Validation Accuracy: [green]{utilities.truncate(average_validation_accuracy, 2):.2f}%[/green]"
+        f"Best Validation Accuracy: [green]{utilities.truncate(best_validation_accuracy, 2):.2f}%[/green]"
     )
     console.print(
         f"[bold]Total experiment time: {utilities.format_duration(experiment_duration)}[/bold]\n"
@@ -373,7 +379,5 @@ def train_model(
 
     return {
         "fold_results": fold_results,
-        "average_validation_loss": average_validation_loss,
-        "average_validation_accuracy": average_validation_accuracy,
         "k_folds": k_folds,
     }
