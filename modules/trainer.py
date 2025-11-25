@@ -202,11 +202,11 @@ def train_model(
             with torch.no_grad():
                 all_validation_outputs = torch.cat(validation_outputs, dim=0)
                 all_validation_targets = torch.cat(validation_targets, dim=0)
-                validation_preds = (
+                validation_predictions = (
                     torch.sigmoid(all_validation_outputs.squeeze()) > 0.5
                 ).long()
                 confusion_matrix.update(
-                    validation_preds, all_validation_targets.squeeze().long()
+                    validation_predictions, all_validation_targets.squeeze().long()
                 )
 
             if len(train_loader) == 0:
