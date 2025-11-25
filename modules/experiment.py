@@ -188,8 +188,6 @@ def run_experiment(experiment_directory: Path) -> None:
             "training": utilities.dataclass_to_dict(config.training),
         },
         "k_folds": train_results["k_folds"],
-        "average_validation_loss": train_results["average_validation_loss"],
-        "average_validation_accuracy": train_results["average_validation_accuracy"],
         "fold_results": train_results["fold_results"],
     }
 
