@@ -1,4 +1,5 @@
 import json
+import logging
 from collections import Counter
 from pathlib import Path
 
@@ -11,11 +12,12 @@ from rich.table import Table
 from torch import Tensor
 
 from modules import data, utilities
-
-console = Console()
+from modules.trainer import EpochMetrics, TrainingResults
 
 
 def analyze_descriptive(root: Path = data.get_data_root_path()) -> None:
+    console = Console()
+
     if not root.exists():
         raise FileNotFoundError(f"Root '{root}' does not exist.")
 
@@ -217,9 +219,8 @@ def analyze_sample_batch(pretrained: bool = False) -> None:
         data_loaders = data.get_data_loaders(pretrained=pretrained)
         train_loader, _ = data_loaders[0]
 
-        batch_images, batch_labels = next(iter(train_loader))
+        batch_images, _ = next(iter(train_loader))
         batch_images: Tensor
-        batch_labels: Tensor
 
         tensors = [batch_images[index] for index in range(len(batch_images))]
 
@@ -398,3 +399,170 @@ def show_training_graphs(experiment_directory: Path, save_graphs: bool = False) 
     )
 
     figure.show()
+
+
+def analyze_results(experiment_directory: Path) -> None:
+    console = Console(record=True)
+
+    results_file = experiment_directory / "results.json"
+
+    if not results_file.exists():
+        console.print(f"[red]Error: results.json not found at {results_file}[/red]")
+        return
+
+    with open(results_file, "r") as file:
+        results: TrainingResults = json.load(file)
+
+    console.print("[bold cyan]Experiment Analysis[/bold cyan]\n")
+
+    best_epochs: list[tuple[int, EpochMetrics]] = []
+
+    for fold_result in results["fold_results"]:
+        fold_number = fold_result["fold"]
+        epoch_history = fold_result["epoch_history"]
+
+        best_epoch = min(epoch_history, key=lambda epoch: epoch["validation_loss"])
+        best_epochs.append((fold_number, best_epoch))
+
+    for fold_number, best_epoch in best_epochs:
+        table = Table(
+            title=f"Fold {fold_number} - Best Epoch (Epoch {best_epoch['epoch']})",
+            title_justify="left",
+        )
+        table.add_column("Metric", style="cyan")
+        table.add_column("Train", justify="right", style="magenta")
+        table.add_column("Validation", justify="right", style="green")
+
+        table.add_row(
+            "Loss",
+            f"{best_epoch['train_loss']:.6f}",
+            f"{best_epoch['validation_loss']:.6f}",
+        )
+        table.add_row(
+            "Accuracy",
+            f"{best_epoch['train_accuracy']:.2f}%",
+            f"{best_epoch['validation_accuracy']:.2f}%",
+        )
+        table.add_row(
+            "Precision",
+            f"{best_epoch['train_precision']:.2f}%",
+            f"{best_epoch['validation_precision']:.2f}%",
+        )
+        table.add_row(
+            "Recall",
+            f"{best_epoch['train_recall']:.2f}%",
+            f"{best_epoch['validation_recall']:.2f}%",
+        )
+        table.add_row(
+            "F1 Score",
+            f"{best_epoch['train_f1_score']:.2f}%",
+            f"{best_epoch['validation_f1_score']:.2f}%",
+        )
+        table.add_row(
+            "ROC-AUC",
+            f"{best_epoch['train_roc_auc']:.2f}%",
+            f"{best_epoch['validation_roc_auc']:.2f}%",
+        )
+
+        console.print(table)
+        console.print()
+
+        fold_result = results["fold_results"][fold_number - 1]
+        confusion_matrix = fold_result["confusion_matrix"]
+        true_negative, false_positive = confusion_matrix[0]
+        false_negative, true_positive = confusion_matrix[1]
+
+        confusion_matrix_table = Table(
+            title=f"Confusion Matrix - Fold {fold_number}",
+            title_justify="left",
+        )
+        confusion_matrix_table.add_column("", style="cyan")
+        confusion_matrix_table.add_column(
+            "Predicted: 0", justify="center", style="magenta"
+        )
+        confusion_matrix_table.add_column(
+            "Predicted: 1", justify="center", style="magenta"
+        )
+        confusion_matrix_table.add_row(
+            "Actual: 0", str(true_negative), str(false_positive)
+        )
+        confusion_matrix_table.add_row(
+            "Actual: 1", str(false_negative), str(true_positive)
+        )
+
+        console.print(confusion_matrix_table)
+        console.print()
+
+    best_fold_number, best_fold_epoch = min(
+        best_epochs, key=lambda epoch: epoch[1]["validation_loss"]
+    )
+
+    summary_table = Table(
+        title=f"[bold yellow]Best Overall: Fold {best_fold_number} - Epoch {best_fold_epoch['epoch']}[/bold yellow]",
+        title_justify="left",
+    )
+    summary_table.add_column("Metric", style="cyan")
+    summary_table.add_column("Train", justify="right", style="magenta")
+    summary_table.add_column("Validation", justify="right", style="green")
+
+    summary_table.add_row(
+        "Loss",
+        f"{best_fold_epoch['train_loss']:.6f}",
+        f"{best_fold_epoch['validation_loss']:.6f}",
+    )
+    summary_table.add_row(
+        "Accuracy",
+        f"{best_fold_epoch['train_accuracy']:.2f}%",
+        f"{best_fold_epoch['validation_accuracy']:.2f}%",
+    )
+    summary_table.add_row(
+        "Precision",
+        f"{best_fold_epoch['train_precision']:.2f}%",
+        f"{best_fold_epoch['validation_precision']:.2f}%",
+    )
+    summary_table.add_row(
+        "Recall",
+        f"{best_fold_epoch['train_recall']:.2f}%",
+        f"{best_fold_epoch['validation_recall']:.2f}%",
+    )
+    summary_table.add_row(
+        "F1 Score",
+        f"{best_fold_epoch['train_f1_score']:.2f}%",
+        f"{best_fold_epoch['validation_f1_score']:.2f}%",
+    )
+    summary_table.add_row(
+        "ROC-AUC",
+        f"{best_fold_epoch['train_roc_auc']:.2f}%",
+        f"{best_fold_epoch['validation_roc_auc']:.2f}%",
+    )
+
+    console.print(summary_table)
+    console.print()
+
+    best_fold_result = results["fold_results"][best_fold_number - 1]
+    best_confusion_matrix = best_fold_result["confusion_matrix"]
+    best_true_negative, best_false_positive = best_confusion_matrix[0]
+    best_false_negative, best_true_positive = best_confusion_matrix[1]
+
+    best_confusion_matrix_table = Table(
+        title=f"[bold yellow]Confusion Matrix - Best Fold {best_fold_number}[/bold yellow]",
+        title_justify="left",
+    )
+    best_confusion_matrix_table.add_column("", style="cyan")
+    best_confusion_matrix_table.add_column(
+        "Predicted: 0", justify="center", style="magenta"
+    )
+    best_confusion_matrix_table.add_column(
+        "Predicted: 1", justify="center", style="magenta"
+    )
+    best_confusion_matrix_table.add_row(
+        "Actual: 0", str(best_true_negative), str(best_false_positive)
+    )
+    best_confusion_matrix_table.add_row(
+        "Actual: 1", str(best_false_negative), str(best_true_positive)
+    )
+
+    console.print(best_confusion_matrix_table)
+
+    utilities.setup_logging(experiment_directory, "analysis")
+    logging.info(console.export_text())
