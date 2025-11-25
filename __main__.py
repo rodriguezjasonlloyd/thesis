@@ -164,7 +164,7 @@ def run():
             try:
                 from modules import analysis
 
-                analysis.show_training_graphs(
+                analysis.analyze_training_graphs(
                     experiment_directory, save_graphs=save_graphs
                 )
                 state_machine.transition(State.AnalysisMenu)
