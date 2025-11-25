@@ -84,6 +84,7 @@ def analysis_menu(state_machine: StateMachine):
             Choice("Descriptive", value="descriptive"),
             Choice("Sample Batch", value="sample_batch"),
             Choice("Show Training Graphs", value="training_graphs"),
+            Choice("Show Training Results", value="results"),
             Choice("Back", value="back", shortcut_key="q"),
         ],
         use_shortcuts=True,
@@ -97,6 +98,8 @@ def analysis_menu(state_machine: StateMachine):
         state_machine.transition(State.AnalyzeSampleBatch)
     elif operation == "training_graphs":
         state_machine.transition(State.AnalyzeTrainingGraphs)
+    elif operation == "results":
+        state_machine.transition(State.AnalyzeResults)
 
 
 def experiment_menu(state_machine: StateMachine):
@@ -167,7 +170,22 @@ def run():
                 state_machine.transition(State.AnalysisMenu)
             except Exception as exception:
                 print(f"Error showing graphs for {selected_experiment}: {exception}")
+        elif current == State.AnalyzeResults:
+            selected_experiment = select_experiment_with_results()
 
+            if selected_experiment == "back":
+                state_machine.transition(State.AnalysisMenu)
+                continue
+
+            experiment_directory = EXPERIMENTS_PATH / selected_experiment
+
+            try:
+                from modules import analysis
+
+                analysis.analyze_results(experiment_directory)
+                state_machine.transition(State.AnalysisMenu)
+            except Exception as exception:
+                print(f"Error showing results for {selected_experiment}: {exception}")
         elif current == State.ExperimentAll:
             directories = [
                 directory

@@ -10,6 +10,7 @@ class State(Enum):
     AnalyzeDescriptive = enum.auto()
     AnalyzeSampleBatch = enum.auto()
     AnalyzeTrainingGraphs = enum.auto()
+    AnalyzeResults = enum.auto()
 
     ExperimentMenu = enum.auto()
     ExperimentAll = enum.auto()
@@ -51,10 +52,12 @@ STATE_MACHINE = StateMachine(
             State.AnalyzeDescriptive,
             State.AnalyzeSampleBatch,
             State.AnalyzeTrainingGraphs,
+            State.AnalyzeResults,
         ],
         State.AnalyzeDescriptive: [State.AnalysisMenu],
         State.AnalyzeSampleBatch: [State.AnalysisMenu],
         State.AnalyzeTrainingGraphs: [State.AnalysisMenu],
+        State.AnalyzeResults: [State.AnalysisMenu],
         State.ExperimentMenu: [
             State.MainMenu,
             State.ExperimentAll,
