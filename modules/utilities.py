@@ -133,6 +133,7 @@ def setup_logging(log_directory: Path, log_filename: str, level=logging.INFO):
             )
         ],
         level=level,
+        force=True,
     )
 
 
