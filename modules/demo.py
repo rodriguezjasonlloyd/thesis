@@ -1,12 +1,16 @@
 from pathlib import Path
+from typing import Literal
 
 from gradio import Blocks, Button, Dropdown, Image, Label, Markdown, Row
 from gradio.themes.default import Default
 from gradio.utils import NamedString
+from PIL.Image import Image as PillowImage
 
 from modules import dashboard
 
-MODEL_CONFIGS = {
+ModelChoice = Literal["convnext", "convnext_fsa", "base_cnn"]
+
+MODEL_CONFIGS: dict[ModelChoice, dict[str, str | bool]] = {
     "convnext": {
         "path": "demo/convnext.pt",
         "architecture": "convnext",
@@ -28,12 +32,14 @@ MODEL_CONFIGS = {
 }
 
 
-def predict_wrapper(image, preprocessing, model_choice):
+def predict_wrapper(
+    image: PillowImage | None, model_choice: ModelChoice
+) -> tuple[str, str]:
     if image is None:
         return ("No image uploaded", "")
 
     config = MODEL_CONFIGS[model_choice]
-    model_path = Path(config["path"])
+    model_path = Path(str(config["path"]))
 
     if not model_path.exists():
         return (f"Model not found: {model_path}", "")
@@ -44,18 +50,20 @@ def predict_wrapper(image, preprocessing, model_choice):
     return dashboard.predict_image(
         uploaded_model=model_file,
         uploaded_image=image,
-        architecture=config["architecture"],
-        with_fsa=config["with_fsa"],
-        preprocessing=preprocessing,
+        architecture=str(config["architecture"]),
+        with_fsa=bool(config["with_fsa"]),
+        preprocessing="all",
     )
 
 
-def cam_wrapper(image, preprocessing, model_choice):
+def cam_wrapper(
+    image: PillowImage | None, model_choice: ModelChoice
+) -> PillowImage | None:
     if image is None:
         return None
 
     config = MODEL_CONFIGS[model_choice]
-    model_path = Path(config["path"])
+    model_path = Path(str(config["path"]))
 
     if not model_path.exists():
         return None
@@ -66,29 +74,16 @@ def cam_wrapper(image, preprocessing, model_choice):
     return dashboard.generate_cam(
         uploaded_model=model_file,
         uploaded_image=image,
-        architecture=config["architecture"],
-        with_fsa=config["with_fsa"],
-        layer_name=config["target_layer"],
-        preprocessing=preprocessing,
+        architecture=str(config["architecture"]),
+        with_fsa=bool(config["with_fsa"]),
+        layer_name=str(config["target_layer"]),
+        preprocessing="all",
     )
 
 
 def make_demo() -> Blocks:
-    with Blocks(theme=Default(text_size="lg")) as dashboard:
+    with Blocks(theme=Default(text_size="lg")) as demo:
         Markdown("# ConvNext V2 with Grad-CAM++ Dashboard for PCOM Classification")
-
-        preprocessing_dropdown = Dropdown(
-            label="Preprocessing Mode",
-            choices=[
-                ("None", "none"),
-                ("CLAHE", "clahe"),
-                ("Otsu Threshold", "otsu_threshold"),
-                ("Deep Contrast", "deep_contrast"),
-                ("All (Aggressive Composite)", "all"),
-            ],
-            value="none",
-            interactive=True,
-        )
 
         model_dropdown = Dropdown(
             label="Model Choice",
@@ -113,14 +108,14 @@ def make_demo() -> Blocks:
 
         predict_button.click(
             fn=predict_wrapper,
-            inputs=[upload_image, preprocessing_dropdown, model_dropdown],
+            inputs=[upload_image, model_dropdown],
             outputs=[predicted_label, predicted_confidence],
         )
 
         show_cam_button.click(
             fn=cam_wrapper,
-            inputs=[upload_image, preprocessing_dropdown, model_dropdown],
+            inputs=[upload_image, model_dropdown],
             outputs=cam_output,
         )
 
-    return dashboard
+    return demo
