@@ -1,4 +1,4 @@
-name = "ConvNext V2 pretrained model of Clean Dataset, "
+name = "ConvNext V2 pretrained model of Clean Dataset "
 seed = 42
 
 [data]

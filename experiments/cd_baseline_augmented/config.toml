@@ -4,7 +4,7 @@ seed = 42
 [data]
 root = "data"
 k_folds = 5
-batch_size = 32
+batch_size = 8
 num_workers = 2
 max_items_per_class = 0
 augmented = true
