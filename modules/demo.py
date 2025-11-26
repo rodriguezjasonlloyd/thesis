@@ -8,7 +8,14 @@ from PIL.Image import Image as PillowImage
 
 from modules import dashboard
 
-ModelChoice = Literal["convnext", "convnext_fsa", "base_cnn"]
+ModelChoice = Literal[
+    "convnext",
+    "convnext_fsa",
+    "base_cnn",
+    "convnext_pre",
+    "convnext_fsa_pre",
+    "base_cnn_pre",
+]
 
 MODEL_CONFIGS: dict[ModelChoice, dict[str, str | bool]] = {
     "convnext": {
@@ -16,18 +23,35 @@ MODEL_CONFIGS: dict[ModelChoice, dict[str, str | bool]] = {
         "architecture": "convnext",
         "with_fsa": False,
         "target_layer": "stages.1.blocks",
+        "preprocessing": "none",
     },
     "convnext_fsa": {
         "path": "demo/convnext_fsa.pt",
         "architecture": "convnext",
         "with_fsa": True,
         "target_layer": "stages.1.blocks",
+        "preprocessing": "none",
     },
     "base_cnn": {
         "path": "demo/base_cnn.pt",
         "architecture": "base",
         "with_fsa": False,
         "target_layer": "features.6",
+        "preprocessing": "none",
+    },
+    "convnext_pre": {
+        "path": "demo/convnext_pre.pt",
+        "architecture": "convnext",
+        "with_fsa": False,
+        "target_layer": "stages.1.blocks",
+        "preprocessing": "all",
+    },
+    "convnext_fsa_pre": {
+        "path": "demo/convnext_fsa_pre.pt",
+        "architecture": "convnext",
+        "with_fsa": True,
+        "target_layer": "stages.1.blocks",
+        "preprocessing": "all",
     },
 }
 
@@ -52,7 +76,7 @@ def predict_wrapper(
         uploaded_image=image,
         architecture=str(config["architecture"]),
         with_fsa=bool(config["with_fsa"]),
-        preprocessing="all",
+        preprocessing=str(config["preprocessing"]),
     )
 
 
@@ -77,7 +101,7 @@ def cam_wrapper(
         architecture=str(config["architecture"]),
         with_fsa=bool(config["with_fsa"]),
         layer_name=str(config["target_layer"]),
-        preprocessing="all",
+        preprocessing=str(config["preprocessing"]),
     )
 
 
@@ -91,6 +115,8 @@ def make_demo() -> Blocks:
                 ("ConvNeXt V2", "convnext"),
                 ("ConvNeXt V2 with Focal Self Attention", "convnext_fsa"),
                 ("Base CNN", "base_cnn"),
+                ("ConvNeXt V2 (With Preprocessing)", "convnext_pre"),
+                ("ConvNeXt V2 with FSA (With Preprocessing)", "convnext_fsa_pre"),
             ],
             value="convnext",
             interactive=True,
