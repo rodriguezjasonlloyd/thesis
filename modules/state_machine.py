@@ -17,6 +17,7 @@ class State(Enum):
     ExperimentSelected = enum.auto()
 
     LaunchDashboard = enum.auto()
+    LaunchDemo = enum.auto()
 
 
 class StateMachine:
@@ -46,6 +47,7 @@ STATE_MACHINE = StateMachine(
             State.AnalysisMenu,
             State.ExperimentMenu,
             State.LaunchDashboard,
+            State.LaunchDemo,
         ],
         State.AnalysisMenu: [
             State.MainMenu,
@@ -66,6 +68,7 @@ STATE_MACHINE = StateMachine(
         State.ExperimentAll: [State.ExperimentMenu],
         State.ExperimentSelected: [State.ExperimentMenu],
         State.LaunchDashboard: [State.MainMenu],
+        State.LaunchDemo: [State.MainMenu],
         State.Quit: [],
     },
 )

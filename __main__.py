@@ -62,6 +62,7 @@ def main_menu(state_machine: StateMachine):
             Choice("Analysis", value="analysis"),
             Choice("Experiment", value="experiment"),
             Choice("Launch Dashboard", value="dashboard"),
+            Choice("Launch Demo", value="demo"),
             Choice("Quit", value="quit", shortcut_key="q"),
         ],
         use_shortcuts=True,
@@ -75,6 +76,8 @@ def main_menu(state_machine: StateMachine):
         state_machine.transition(State.ExperimentMenu)
     elif operation == "dashboard":
         state_machine.transition(State.LaunchDashboard)
+    elif operation == "demo":
+        state_machine.transition(State.LaunchDemo)
 
 
 def analysis_menu(state_machine: StateMachine):
@@ -233,6 +236,11 @@ def run():
             from modules import dashboard
 
             dashboard.make_dashboard().launch()
+            state_machine.transition(State.MainMenu)
+        elif current == State.LaunchDemo:
+            from modules import demo
+
+            demo.make_demo().launch()
             state_machine.transition(State.MainMenu)
 
 
