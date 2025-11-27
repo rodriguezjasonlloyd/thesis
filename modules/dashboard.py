@@ -31,6 +31,7 @@ def predict_image(
     architecture: str,
     with_fsa: bool,
     preprocessing: str,
+    pretrained: bool = False,
 ) -> tuple[str, str]:
     if uploaded_model is None:
         return ("No model uploaded", "")
@@ -46,7 +47,9 @@ def predict_image(
         return ("Something went wrong with loading the model", "")
 
     image_tensor = utilities.image_to_tensor(
-        uploaded_image, preprocessing=PreprocessingMode(preprocessing)
+        uploaded_image,
+        pretrained=pretrained,
+        preprocessing=PreprocessingMode(preprocessing),
     )
 
     try:
@@ -97,6 +100,7 @@ def generate_cam(
     with_fsa: bool,
     layer_name: str,
     preprocessing: str,
+    pretrained: bool = False,
 ) -> PillowImage.Image | None:
     try:
         loaded_model = model.load_model(
@@ -106,7 +110,9 @@ def generate_cam(
         device = next(loaded_model.parameters()).device
         output = loaded_model(
             utilities.image_to_tensor(
-                uploaded_image, preprocessing=PreprocessingMode(preprocessing)
+                uploaded_image,
+                pretrained=pretrained,
+                preprocessing=PreprocessingMode(preprocessing),
             )
             .unsqueeze(0)
             .to(device)
