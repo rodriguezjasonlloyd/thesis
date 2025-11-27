@@ -84,8 +84,8 @@ def analysis_menu(state_machine: StateMachine):
     operation = questionary.select(
         "Select analysis type:",
         choices=[
-            Choice("Descriptive", value="descriptive"),
-            Choice("Sample Batch", value="sample_batch"),
+            Choice("Show Descriptive Statistics", value="descriptive"),
+            Choice("Show Sample Batch", value="sample_batch"),
             Choice("Show Training Graphs", value="training_graphs"),
             Choice("Show Training Results", value="results"),
             Choice("Back", value="back", shortcut_key="q"),
@@ -145,8 +145,26 @@ def run():
             state_machine.transition(State.AnalysisMenu)
         elif current == State.AnalyzeSampleBatch:
             from modules import analysis
+            from modules.data import PreprocessingMode
 
-            analysis.analyze_sample_batch(pretrained=True)
+            preprocessing = questionary.select(
+                "Select Preprocessing Mode:",
+                choices=[
+                    Choice("None", value=PreprocessingMode.NONE),
+                    Choice("CLAHE", value=PreprocessingMode.CLAHE),
+                    Choice("Otsu Threshold", value=PreprocessingMode.OTSU_THRESHOLD),
+                    Choice("Deep Contrast", value=PreprocessingMode.DEEP_CONTRAST),
+                    Choice("All", value=PreprocessingMode.ALL),
+                ],
+                default=PreprocessingMode.NONE,
+                use_shortcuts=True,
+            ).ask()
+
+            if preprocessing is None:
+                state_machine.transition(State.AnalysisMenu)
+                continue
+
+            analysis.analyze_sample_batch(preprocessing=preprocessing)
             state_machine.transition(State.AnalysisMenu)
         elif current == State.AnalyzeTrainingGraphs:
             selected_experiment = select_experiment_with_results()

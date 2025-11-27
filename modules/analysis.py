@@ -12,6 +12,7 @@ from rich.table import Table
 from torch import Tensor
 
 from modules import data, utilities
+from modules.preprocessing import PreprocessingMode
 from modules.trainer import EpochMetrics, TrainingResults
 
 
@@ -211,14 +212,20 @@ def analyze_descriptive(root: Path = data.get_data_root_path()) -> None:
     console.print()
 
 
-def analyze_sample_batch(pretrained: bool = False) -> None:
+def analyze_sample_batch(
+    pretrained: bool = False,
+    preprocessing: PreprocessingMode = PreprocessingMode.NONE,
+) -> None:
     rows = 3
     cols = 3
 
     try:
-        data_loaders = data.get_data_loaders(pretrained=pretrained)
-        train_loader, _ = data_loaders[0]
+        data_loaders = data.get_data_loaders(
+            pretrained=pretrained,
+            preprocessing=preprocessing,
+        )
 
+        train_loader, _ = data_loaders[0]
         batch_images, _ = next(iter(train_loader))
         batch_images: Tensor
 
