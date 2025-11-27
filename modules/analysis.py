@@ -237,6 +237,8 @@ def analyze_sample_batch(
             subplot_titles=[
                 f"Image {i + 1}" for i in range(min(len(tensors), rows * cols))
             ],
+            vertical_spacing=0.05,
+            horizontal_spacing=0.025,
         )
 
         for index, tensor in enumerate(tensors[: rows * cols]):
@@ -250,8 +252,8 @@ def analyze_sample_batch(
         figure.update_yaxes(visible=False)
         figure.update_layout(
             title={"text": "Sample PCOS Batch", "x": 0.5, "xanchor": "center"},
-            height=rows * 300,
-            width=cols * 300,
+            height=rows * 400,
+            width=cols * 400,
         )
         figure.show()
     except Exception as exception:
