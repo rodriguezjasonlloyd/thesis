@@ -156,7 +156,6 @@ def run():
                     Choice("Deep Contrast", value=PreprocessingMode.DEEP_CONTRAST),
                     Choice("All", value=PreprocessingMode.ALL),
                 ],
-                default=PreprocessingMode.NONE,
                 use_shortcuts=True,
             ).ask()
 
