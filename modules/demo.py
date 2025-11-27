@@ -11,10 +11,13 @@ from modules import dashboard
 ModelChoice = Literal[
     "convnext",
     "convnext_fsa",
-    "base_cnn",
     "convnext_pre",
     "convnext_fsa_pre",
-    "base_cnn_pre",
+    "convnext_imagenet",
+    "convnext_fsa_imagenet",
+    "convnext_pre_imagenet",
+    "convnext_fsa_pre_imagenet",
+    "base_cnn",
 ]
 
 MODEL_CONFIGS: dict[ModelChoice, dict[str, str | bool]] = {
@@ -24,6 +27,7 @@ MODEL_CONFIGS: dict[ModelChoice, dict[str, str | bool]] = {
         "with_fsa": False,
         "target_layer": "stages.1.blocks",
         "preprocessing": "none",
+        "pretrained": False,
     },
     "convnext_fsa": {
         "path": "demo/convnext_fsa.pt",
@@ -31,13 +35,7 @@ MODEL_CONFIGS: dict[ModelChoice, dict[str, str | bool]] = {
         "with_fsa": True,
         "target_layer": "stages.1.blocks",
         "preprocessing": "none",
-    },
-    "base_cnn": {
-        "path": "demo/base_cnn.pt",
-        "architecture": "base",
-        "with_fsa": False,
-        "target_layer": "features.6",
-        "preprocessing": "none",
+        "pretrained": False,
     },
     "convnext_pre": {
         "path": "demo/convnext_pre.pt",
@@ -45,6 +43,7 @@ MODEL_CONFIGS: dict[ModelChoice, dict[str, str | bool]] = {
         "with_fsa": False,
         "target_layer": "stages.1.blocks",
         "preprocessing": "all",
+        "pretrained": False,
     },
     "convnext_fsa_pre": {
         "path": "demo/convnext_fsa_pre.pt",
@@ -52,6 +51,47 @@ MODEL_CONFIGS: dict[ModelChoice, dict[str, str | bool]] = {
         "with_fsa": True,
         "target_layer": "stages.1.blocks",
         "preprocessing": "all",
+        "pretrained": False,
+    },
+    "convnext_imagenet": {
+        "path": "demo/convnext_imagenet.pt",
+        "architecture": "convnext",
+        "with_fsa": False,
+        "target_layer": "stages.1.blocks",
+        "preprocessing": "none",
+        "pretrained": True,
+    },
+    "convnext_fsa_imagenet": {
+        "path": "demo/convnext_fsa_imagenet.pt",
+        "architecture": "convnext",
+        "with_fsa": True,
+        "target_layer": "stages.1.blocks",
+        "preprocessing": "none",
+        "pretrained": True,
+    },
+    "convnext_pre_imagenet": {
+        "path": "demo/convnext_pre_imagenet.pt",
+        "architecture": "convnext",
+        "with_fsa": False,
+        "target_layer": "stages.1.blocks",
+        "preprocessing": "all",
+        "pretrained": True,
+    },
+    "convnext_fsa_pre_imagenet": {
+        "path": "demo/convnext_fsa_pre_imagenet.pt",
+        "architecture": "convnext",
+        "with_fsa": True,
+        "target_layer": "stages.1.blocks",
+        "preprocessing": "all",
+        "pretrained": True,
+    },
+    "base_cnn": {
+        "path": "demo/base_cnn.pt",
+        "architecture": "base",
+        "with_fsa": False,
+        "target_layer": "features.6",
+        "preprocessing": "none",
+        "pretrained": False,
     },
 }
 
@@ -77,6 +117,7 @@ def predict_wrapper(
         architecture=str(config["architecture"]),
         with_fsa=bool(config["with_fsa"]),
         preprocessing=str(config["preprocessing"]),
+        pretrained=bool(config["pretrained"]),
     )
 
 
@@ -102,6 +143,7 @@ def cam_wrapper(
         with_fsa=bool(config["with_fsa"]),
         layer_name=str(config["target_layer"]),
         preprocessing=str(config["preprocessing"]),
+        pretrained=bool(config["pretrained"]),
     )
 
 
@@ -114,9 +156,19 @@ def make_demo() -> Blocks:
             choices=[
                 ("ConvNeXt V2", "convnext"),
                 ("ConvNeXt V2 with Focal Self Attention", "convnext_fsa"),
-                ("Base CNN", "base_cnn"),
                 ("ConvNeXt V2 (With Preprocessing)", "convnext_pre"),
                 ("ConvNeXt V2 with FSA (With Preprocessing)", "convnext_fsa_pre"),
+                ("ConvNeXt V2 ImageNet", "convnext_imagenet"),
+                ("ConvNeXt V2 ImageNet with FSA", "convnext_fsa_imagenet"),
+                (
+                    "ConvNeXt V2 ImageNet (With Preprocessing)",
+                    "convnext_pre_imagenet",
+                ),
+                (
+                    "ConvNeXt V2 ImageNet with FSA (With Preprocessing)",
+                    "convnext_fsa_pre_imagenet",
+                ),
+                ("Base CNN", "base_cnn"),
             ],
             value="convnext",
             interactive=True,
