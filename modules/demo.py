@@ -89,7 +89,7 @@ MODEL_CONFIGS: dict[ModelChoice, dict[str, str | bool]] = {
         "path": "demo/base_cnn.pt",
         "architecture": "base",
         "with_fsa": False,
-        "target_layer": "features.6",
+        "target_layer": "features.3",
         "preprocessing": "none",
         "pretrained": False,
     },
