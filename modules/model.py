@@ -99,14 +99,20 @@ def get_channels_for_stage(model: Module, stage_index: int) -> int:
 
 def get_all_convolutional_layers(model: Module) -> list[tuple[str, str]]:
     convolutional_layers = []
+    seen = set()
 
     for name, module in model.named_modules():
         name: str
         module: Module
 
         if isinstance(module, Conv2d):
-            display_name = name.replace(".", " > ")
-            convolutional_layers.append((display_name, name))
+            parts = name.split(".")
+            shallow_name = ".".join(parts[:3]) if len(parts) >= 3 else name
+
+            if shallow_name not in seen:
+                display_name = shallow_name.replace(".", " > ")
+                convolutional_layers.append((display_name, shallow_name))
+                seen.add(shallow_name)
 
     return convolutional_layers
 
