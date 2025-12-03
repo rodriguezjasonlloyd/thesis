@@ -344,12 +344,18 @@ def analyze_training_graphs(
                 figure.write_image(str(output_path))
 
             confusion_matrix = fold["confusion_matrix"]
+
+            confusion_matrix_transposed = [
+                [confusion_matrix[0][1], confusion_matrix[1][1]],
+                [confusion_matrix[0][0], confusion_matrix[1][0]],
+            ]
+
             confusion_matrix_figure = Figure(
                 data=Heatmap(
-                    z=confusion_matrix,
+                    z=confusion_matrix_transposed,
                     x=["Predicted: 0", "Predicted: 1"],
-                    y=["Actual: 0", "Actual: 1"],
-                    text=confusion_matrix,
+                    y=["Actual: 1", "Actual: 0"],
+                    text=confusion_matrix_transposed,
                     texttemplate="%{text}",
                     colorscale="Blues",
                     showscale=True,
@@ -438,12 +444,17 @@ def analyze_training_graphs(
 
         confusion_matrix = fold["confusion_matrix"]
 
+        confusion_matrix_transposed = [
+            [confusion_matrix[0][1], confusion_matrix[1][1]],
+            [confusion_matrix[0][0], confusion_matrix[1][0]],
+        ]
+
         figure.add_trace(
             Heatmap(
-                z=confusion_matrix,
+                z=confusion_matrix_transposed,
                 x=["Predicted: 0", "Predicted: 1"],
-                y=["Actual: 0", "Actual: 1"],
-                text=confusion_matrix,
+                y=["Actual: 1", "Actual: 0"],
+                text=confusion_matrix_transposed,
                 texttemplate="%{text}",
                 colorscale="Blues",
                 showscale=False,
