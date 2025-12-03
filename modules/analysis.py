@@ -639,6 +639,115 @@ def analyze_results(experiment_directory: Path) -> None:
     )
 
     console.print(best_confusion_matrix_table)
+    console.print()
+
+    average_train_loss = sum(epoch[1]["train_loss"] for epoch in best_epochs) / len(
+        best_epochs
+    )
+    average_validation_loss = sum(
+        epoch[1]["validation_loss"] for epoch in best_epochs
+    ) / len(best_epochs)
+    average_train_accuracy = sum(
+        epoch[1]["train_accuracy"] for epoch in best_epochs
+    ) / len(best_epochs)
+    average_validation_accuracy = sum(
+        epoch[1]["validation_accuracy"] for epoch in best_epochs
+    ) / len(best_epochs)
+    average_train_precision = sum(
+        epoch[1]["train_precision"] for epoch in best_epochs
+    ) / len(best_epochs)
+    average_validation_precision = sum(
+        epoch[1]["validation_precision"] for epoch in best_epochs
+    ) / len(best_epochs)
+    average_train_recall = sum(epoch[1]["train_recall"] for epoch in best_epochs) / len(
+        best_epochs
+    )
+    average_validation_recall = sum(
+        epoch[1]["validation_recall"] for epoch in best_epochs
+    ) / len(best_epochs)
+    average_train_f1 = sum(epoch[1]["train_f1_score"] for epoch in best_epochs) / len(
+        best_epochs
+    )
+    average_validation_f1 = sum(
+        epoch[1]["validation_f1_score"] for epoch in best_epochs
+    ) / len(best_epochs)
+    average_train_roc_auc = sum(
+        epoch[1]["train_roc_auc"] for epoch in best_epochs
+    ) / len(best_epochs)
+    average_validation_roc_auc = sum(
+        epoch[1]["validation_roc_auc"] for epoch in best_epochs
+    ) / len(best_epochs)
+
+    average_table = Table(
+        title="[bold green]Average Metrics Across All Folds[/bold green]",
+        title_justify="left",
+    )
+    average_table.add_column("Metric", style="cyan")
+    average_table.add_column("Train", justify="right", style="magenta")
+    average_table.add_column("Validation", justify="right", style="green")
+
+    average_table.add_row(
+        "Loss", f"{average_train_loss:.6f}", f"{average_validation_loss:.6f}"
+    )
+    average_table.add_row(
+        "Accuracy",
+        f"{average_train_accuracy:.2f}%",
+        f"{average_validation_accuracy:.2f}%",
+    )
+    average_table.add_row(
+        "Precision",
+        f"{average_train_precision:.2f}%",
+        f"{average_validation_precision:.2f}%",
+    )
+    average_table.add_row(
+        "Recall", f"{average_train_recall:.2f}%", f"{average_validation_recall:.2f}%"
+    )
+    average_table.add_row(
+        "F1 Score", f"{average_train_f1:.2f}%", f"{average_validation_f1:.2f}%"
+    )
+    average_table.add_row(
+        "ROC-AUC", f"{average_train_roc_auc:.2f}%", f"{average_validation_roc_auc:.2f}%"
+    )
+
+    console.print(average_table)
+    console.print()
+
+    total_true_negative = sum(
+        results["fold_results"][index]["confusion_matrix"][0][0]
+        for index in range(len(results["fold_results"]))
+    )
+    total_false_positive = sum(
+        results["fold_results"][index]["confusion_matrix"][0][1]
+        for index in range(len(results["fold_results"]))
+    )
+    total_false_negative = sum(
+        results["fold_results"][index]["confusion_matrix"][1][0]
+        for index in range(len(results["fold_results"]))
+    )
+    total_true_positive = sum(
+        results["fold_results"][index]["confusion_matrix"][1][1]
+        for index in range(len(results["fold_results"]))
+    )
+
+    total_confusion_matrix_table = Table(
+        title="[bold green]Total Confusion Matrix[/bold green]",
+        title_justify="left",
+    )
+    total_confusion_matrix_table.add_column("", style="cyan")
+    total_confusion_matrix_table.add_column(
+        "Predicted: 0", justify="center", style="magenta"
+    )
+    total_confusion_matrix_table.add_column(
+        "Predicted: 1", justify="center", style="magenta"
+    )
+    total_confusion_matrix_table.add_row(
+        "Actual: 0", str(total_true_negative), str(total_false_positive)
+    )
+    total_confusion_matrix_table.add_row(
+        "Actual: 1", str(total_false_negative), str(total_true_positive)
+    )
+
+    console.print(total_confusion_matrix_table)
 
     utilities.setup_logging(experiment_directory, "analysis")
     logging.info(console.export_text())
