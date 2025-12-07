@@ -1,0 +1,25 @@
+name = "ConvNext V2 Pretrained model of Figshare Dataset, with FSA - Seed:29"
+seed = 29
+
+[data]
+root = "data"
+k_folds = 5
+batch_size = 32
+num_workers = 2
+max_items_per_class = 0
+augmented = false
+preprocessing = "none"
+
+[model]
+architecture = "convnext"
+pretrained = true
+with_fsa = true
+
+[optimizer]
+learning_rate = 0.0001
+weight_decay = 0.001
+
+[training]
+num_epochs = 30
+patience = 5
+min_delta = 0.0001
