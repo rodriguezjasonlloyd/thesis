@@ -1,5 +1,5 @@
-name = "ConvNext V2 model of Clean Dataset, Preprocessing Method: OTSU"
-seed = 42
+name = "CNN model with Figshare Dataset - seed 8"
+seed = 8
 
 [data]
 root = "data"
@@ -8,10 +8,10 @@ batch_size = 32
 num_workers = 2
 max_items_per_class = 0
 augmented = false
-preprocessing = "otsu_threshold"
+preprocessing = "none"
 
 [model]
-architecture = "convnext"
+architecture = "base"
 pretrained = false
 with_fsa = false
 

@@ -1,5 +1,5 @@
-name = "ConvNext V2 model of Clean Dataset, Preprocessing Method: Deep Contrast"
-seed = 42
+name = "ConvNext V2 model of Figshare Dataset - Seed 27"
+seed = 27
 
 [data]
 root = "data"
@@ -8,7 +8,7 @@ batch_size = 32
 num_workers = 2
 max_items_per_class = 0
 augmented = false
-preprocessing = "deep_contrast"
+preprocessing = "none"
 
 [model]
 architecture = "convnext"

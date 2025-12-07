@@ -1,5 +1,5 @@
-name = "ConvNext V2 model of Clean Dataset, Preprocessing Method: CLAHE"
-seed = 42
+name = "CNN model with Figshare Dataset - seed 26"
+seed = 26
 
 [data]
 root = "data"
@@ -8,10 +8,10 @@ batch_size = 32
 num_workers = 2
 max_items_per_class = 0
 augmented = false
-preprocessing = "clahe"
+preprocessing = "none"
 
 [model]
-architecture = "convnext"
+architecture = "base"
 pretrained = false
 with_fsa = false
 

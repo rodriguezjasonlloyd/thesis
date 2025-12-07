@@ -1,4 +1,4 @@
-name = "CNN model with Figshare Dataset"
+name = "CNN model with Figshare Dataset - seed 42"
 seed = 42
 
 [data]

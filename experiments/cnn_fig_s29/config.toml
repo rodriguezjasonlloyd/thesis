@@ -1,17 +1,17 @@
-name = "ConvNext V2 model of Clean Dataset"
-seed = 42
+name = "CNN model with Figshare Dataset - seed 29"
+seed = 29
 
 [data]
 root = "data"
 k_folds = 5
-batch_size = 8
+batch_size = 32
 num_workers = 2
 max_items_per_class = 0
 augmented = false
 preprocessing = "none"
 
 [model]
-architecture = "convnext"
+architecture = "base"
 pretrained = false
 with_fsa = false
 

@@ -1,5 +1,5 @@
-name = "CNN model with Clean Dataset"
-seed = 42
+name = "ConvNext V2 model of Figshare Dataset - Seed 8"
+seed = 8
 
 [data]
 root = "data"
@@ -11,7 +11,7 @@ augmented = false
 preprocessing = "none"
 
 [model]
-architecture = "base"
+architecture = "convnext"
 pretrained = false
 with_fsa = false
 
