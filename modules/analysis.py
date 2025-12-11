@@ -353,13 +353,19 @@ def analyze_training_graphs(
             confusion_matrix_figure = Figure(
                 data=Heatmap(
                     z=confusion_matrix_transposed,
-                    x=["Predicted: 0", "Predicted: 1"],
-                    y=["Actual: 1", "Actual: 0"],
+                    x=["Non-Infected", "Infected"],
+                    y=["Infected", "Non-Infected"],
                     text=confusion_matrix_transposed,
                     texttemplate="%{text}",
                     colorscale="Blues",
-                    showscale=True,
+                    showscale=False,
                 )
+            )
+
+            confusion_matrix_figure.update_layout(
+                xaxis=dict(title_text="Predicted", title_standoff=15),
+                yaxis=dict(tickangle=-90, title_text="Actual"),
+                margin=dict(l=80, b=80, r=80, t=80),
             )
 
             confusion_matrix_figure.update_layout(
@@ -452,13 +458,38 @@ def analyze_training_graphs(
         figure.add_trace(
             Heatmap(
                 z=confusion_matrix_transposed,
-                x=["Predicted: 0", "Predicted: 1"],
-                y=["Actual: 1", "Actual: 0"],
+                x=["Non-Infected", "Infected"],
+                y=["Infected", "Non-Infected"],
                 text=confusion_matrix_transposed,
                 texttemplate="%{text}",
                 colorscale="Blues",
                 showscale=False,
             ),
+            row=row,
+            col=num_metrics + 1,
+        )
+
+        figure.add_annotation(
+            x=-0.3,
+            y=0.5,
+            text="Actual",
+            xref="x domain",
+            yref="y domain",
+            showarrow=False,
+            textangle=-90,
+            font=dict(size=12),
+            row=row,
+            col=num_metrics + 1,
+        )
+
+        figure.add_annotation(
+            x=0.5,
+            y=-0.2,
+            text="Predicted",
+            xref="x domain",
+            yref="y domain",
+            showarrow=False,
+            font=dict(size=12),
             row=row,
             col=num_metrics + 1,
         )
@@ -735,16 +766,16 @@ def analyze_results(experiment_directory: Path) -> None:
     )
     total_confusion_matrix_table.add_column("", style="cyan")
     total_confusion_matrix_table.add_column(
-        "Predicted: 0", justify="center", style="magenta"
+        "Predicted: Non-Infected", justify="center", style="magenta"
     )
     total_confusion_matrix_table.add_column(
-        "Predicted: 1", justify="center", style="magenta"
+        "Predicted: Infected", justify="center", style="magenta"
     )
     total_confusion_matrix_table.add_row(
-        "Actual: 0", str(total_true_negative), str(total_false_positive)
+        "Actual: Non-Infected", str(total_true_negative), str(total_false_positive)
     )
     total_confusion_matrix_table.add_row(
-        "Actual: 1", str(total_false_negative), str(total_true_positive)
+        "Actual: Infected", str(total_false_negative), str(total_true_positive)
     )
 
     console.print(total_confusion_matrix_table)
