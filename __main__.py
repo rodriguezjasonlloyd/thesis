@@ -46,8 +46,7 @@ def select_experiment_with_results(path: Path = EXPERIMENTS_PATH) -> str | None:
     selected_experiment = questionary.select(
         "Select experiment:",
         choices=[Choice(directory) for directory in directories]
-        + [Separator(), Choice("Back", value="back", shortcut_key="q")],
-        use_shortcuts=True,
+        + [Separator(), Choice("Back", value="back")],
     ).ask()
 
     return selected_experiment
